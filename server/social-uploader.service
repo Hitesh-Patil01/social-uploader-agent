@@ -1,0 +1,19 @@
+[Unit]
+Description=Social uploader agent (YouTube, Facebook, Instagram)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__DIR__
+Environment=AGENT_LOOP=1
+Environment=PYTHONUNBUFFERED=1
+ExecStart=__DIR__/venv/bin/python agent.py
+# Start again after a crash or after /restart on Telegram. /stop on Telegram exits with code 5 and stays stopped.
+Restart=always
+RestartSec=10
+RestartPreventExitStatus=5
+
+[Install]
+WantedBy=multi-user.target
