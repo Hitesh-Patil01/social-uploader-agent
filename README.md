@@ -273,7 +273,7 @@ This is the longest part. Do it in order, and test after each step.
 2. Link the Page: **Edit profile → Public business information → Page → Connect existing Page** (or create a new Page there). Log in to
    Facebook with the account that manages the Page.
 3. Each Instagram account needs **its own Page**, and a Page links to only one Instagram account.
-4. Afterwards, turn off **automatic sharing to Facebook** in the Instagram app (**Settings and activity → Sharing to other apps**), so Reels are not
+4. **Turn off automatic sharing to Facebook** in the Instagram app for each account (**Settings and activity → Sharing to other apps**, or the sharing settings in Accounts Center). In the author's test, Instagram copied each Reel to the linked Page until this was switched off, and if you also post to `fb` the same video appears twice. Reels are not
    copied to the Page. After your first Instagram test, check the Page for a copy.
 
 **If linking shows "Something went wrong"** (it can happen repeatedly):
@@ -325,7 +325,7 @@ PLATFORMS=youtube,facebook
 - **Facebook:** send a short video to `fb`, then in **Meta Business Suite → Planner** check the text, the time and the cover. Delete the test post.
   (The page mention appears as plain text, not a blue tag.)
 - **Instagram:** use a real video (it goes public the moment it publishes). Vertical 9:16, MP4, H.264/AAC, **90 seconds or less**. Reply `ig1`, set a time
-  15 to 20 minutes ahead, and watch for "posted". Check the Reel, its cover, and the Page for an unwanted copy.
+  15 to 20 minutes ahead, and watch for "posted" (allow a few minutes: about 3 to 5 minutes for a 30 to 45 second Reel in the author's tests). Check the Reel, its cover, and the Page for an unwanted copy; if there is one, switch off the automatic share (7.1, point 4) and delete the copy.
 
 To test one Instagram account at a time, add `IG_ACCOUNTS=your_instagram_handle` to `.env`. Remove the line when all accounts work.
 Finally set `PLATFORMS=youtube,facebook,instagram`.
@@ -597,7 +597,7 @@ had been terminated by the system after an audit. They could not give details, r
 | `cancel` | Skip this video (it moves to the `skipped` folder) |
 
    Time formats: `8pm`, `8:30pm`, `8:00 pm`, `20:00`. A time without am/pm, like `8`, means 8 in the morning. YouTube and Facebook need a time at least 15 minutes ahead.
-5. After `ok`: YouTube is uploaded (private, public at your time, in your playlist), Facebook is scheduled, and the agent holds Instagram until its time.
+5. After `ok`: YouTube is uploaded (private, public at your time, in your playlist), Facebook is scheduled, and the agent holds Instagram until its time. The single result message appears only when all chosen places are done, and Instagram needs a few minutes to process each video, so be patient.
    You get messages with the links. Then do the manual steps: hide likes and shares on Instagram, and the AI label if you use one.
 
 Several videos in the inbox are handled one at a time.
@@ -735,9 +735,10 @@ Several videos in the inbox are handled one at a time.
 
 ## 15. Honest status and limits
 
-**Tested live by the author (up to version 1.0.0):** Telegram control; YouTube upload, schedule, tags, description, playlist; Facebook chunked upload, schedule, text and cover;
-Instagram linking, token setup and the helper; the Oracle server setup; Google Drive sync; the choose-where-to-post flow; time commands; heading removal.
-The automated tests (section 16) cover all of this offline. Version 1.1.0 adds `/jobs` and `/cancel`. They are covered by the offline tests, but have not yet been run against a real waiting Instagram post.
+**Tested live by the author (up to version 1.1.0):** Telegram control; YouTube upload, schedule, tags, description, playlist; Facebook chunked upload, schedule, text and cover;
+Instagram linking, token setup and the helper; **publishing real Instagram posts at their set time on both Instagram accounts, run from the server with the PC off**; `/cancel all` removing queued Instagram posts; the Oracle server setup;
+Google Drive sync; the choose-where-to-post flow; time commands; heading removal.
+The automated tests (section 16) cover all of this offline. Your results may differ: platform rules, app review states and account types change, so run the tests in section 7.4 on your own accounts before you rely on it.
 
 **Limits**
 - YouTube's free quota allows roughly 6 uploads a day. Projects Google has not audited may keep uploads private.
@@ -745,6 +746,7 @@ The automated tests (section 16) cover all of this offline. Version 1.1.0 adds `
 - Instagram Reels through the API can be at most 90 seconds. Instagram has no API scheduler, so the agent must be running at post time.
 - The AI-content label on Facebook and Instagram, and hiding likes and shares on Instagram, are manual.
 - `fb` posts to one Facebook Page only (the one in `settings.json`).
+- Instagram needs a few minutes to process each video (about 3 to 5 minutes for a 30 to 45 second Reel in the author's tests). Instagram's own "share to Facebook" setting can copy Reels to your Page, so turn it off (section 7.1).
 - Free cloud accounts can be closed by the provider's automated checks, sometimes with no stated reason and no confirmed way back (section 9.13). Section 9.0 lists what we know to avoid. Keep backups and treat the server as replaceable.
 - Meta, Google and Oracle change their menus and rules. If a screen differs from this guide, pick the nearest option.
 
