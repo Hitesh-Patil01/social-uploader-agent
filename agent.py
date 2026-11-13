@@ -13,7 +13,7 @@ How a post happens:
                Facebook (native schedule) are uploaded right away, if chosen.  Instagram posts are published by
                this agent at the set times, so the agent must be running then (on a server it always is).
 
-Telegram commands (when the agent is running):  /help   /status   /jobs   /cancel   /restart   /stop
+Telegram commands (when the agent is running):  /help   /status   /jobs   /cancel   /disk   /clean   /restart   /stop
 
 Commands:
   python agent.py --auth    one-time YouTube login (opens a browser)
@@ -46,7 +46,7 @@ from dotenv import load_dotenv
 
 import captions
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 for _s in (sys.stdout, sys.stderr):  # Marathi/emoji safe on Windows consoles
     try:
@@ -757,6 +757,7 @@ def status_text() -> str:
              f"Working on: {convo.video.name}" if convo else "Not working on a video right now."]
     waiting = [p for p in INBOX.iterdir() if p.suffix.lower() in VIDEO_EXT] if INBOX.exists() else []
     lines.append(f"Videos in the inbox: {len(waiting)}")
+    lines.append(storage_text(compact=True))
     jobs = load_jobs()
     live = sorted((j for j in jobs if j["status"] in ("pending", "ready")), key=lambda j: j["publish_at"])
     if live:
@@ -825,8 +826,97 @@ def cancel_jobs(args: list) -> str:
             "YouTube and Facebook posts are not touched. Delete those in YouTube Studio and Meta Business Suite.")
 
 
+def human_size(n: int) -> str:
+    size = float(n)
+    for unit in ("B", "KB", "MB", "GB"):
+        if size < 1024:
+            return f"{size:.0f} B" if unit == "B" else f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} TB"
+
+
+def folder_stats(folder: Path):
+    """(number of videos, bytes used by every file) in one of the agent's folders. A missing folder counts as empty."""
+    if not folder.exists():
+        return 0, 0
+    files = [f for f in folder.iterdir() if f.is_file() and not f.is_symlink()]
+    return sum(1 for f in files if f.suffix.lower() in VIDEO_EXT), sum(f.stat().st_size for f in files)
+
+
+def storage_text(compact: bool = False) -> str:
+    """How many videos are kept on this machine, and how much disk is free."""
+    folders = (("inbox", "waiting for your answer", INBOX), ("scheduled", "Instagram posts waiting", SCHEDULED),
+               ("skipped", "cancelled", SKIPPED), ("done", "posted", DONE))
+    stats = {name: folder_stats(folder) for name, _, folder in folders}
+    try:
+        usage = shutil.disk_usage(BASE)
+        disk = f"Disk: {human_size(usage.free)} free of {human_size(usage.total)}"
+        low = usage.free < 3 * 1024 ** 3
+    except OSError:
+        disk, low = "Disk: unknown", False
+    if compact:
+        line = "Videos kept: " + ", ".join(f"{name} {stats[name][0]}" for name, _, _ in folders) + f". {disk} (/disk for details)"
+        return line + ("\n⚠️ The disk is nearly full. Send /clean." if low else "")
+    lines = ["Videos on this machine:"]
+    lines += [f"  {name} ({what}): {stats[name][0]} video(s), {human_size(stats[name][1])}" for name, what, _ in folders]
+    lines.append(disk)
+    if low:
+        lines.append("⚠️ The disk is nearly full. Send /clean to delete cancelled videos.")
+    lines.append("Free up space: /clean (cancelled videos), /clean done (posted videos), /clean all (both). "
+                 "The inbox and waiting Instagram posts are never touched.")
+    return "\n".join(lines)
+
+
+def files_to_clean(folder: Path, only_videos: bool) -> list:
+    """Regular files that /clean may delete in one folder. Sub-folders and links are never touched."""
+    if not folder.exists():
+        return []
+    found = []
+    for f in sorted(folder.iterdir()):
+        if f.is_symlink() or not f.is_file():
+            continue
+        if only_videos and f.suffix.lower() not in VIDEO_EXT and not f.name.endswith(".cover.jpg"):
+            continue  # in 'done' the small results.json records are kept
+        found.append(f)
+    return found
+
+
+def clean_command(args: list) -> str:
+    words = [a.lower() for a in args]
+    confirmed = "yes" in words
+    words = [w for w in words if w != "yes"]
+    what = words[0] if words else "skipped"
+    if len(words) > 1 or what not in ("skipped", "done", "all"):
+        return ("Use /clean (cancelled videos), /clean done (posted videos) or /clean all (both).\n"
+                "Posted videos need a confirmation: /clean done yes")
+    targets = []
+    if what in ("skipped", "all"):
+        targets.append(("cancelled", SKIPPED, False))
+    if what in ("done", "all"):
+        targets.append(("posted", DONE, True))
+    plan = [(label, f) for label, folder, only_videos in targets for f in files_to_clean(folder, only_videos)]
+    if not plan:
+        return "Nothing to delete.\n" + storage_text(compact=True)
+    videos = sum(1 for _, f in plan if f.suffix.lower() in VIDEO_EXT)
+    size = sum(f.stat().st_size for _, f in plan)
+    if what in ("done", "all") and not confirmed:
+        return (f"This will delete {videos} video(s), {human_size(size)} in total, including posted videos. They are already "
+                f"posted, but the agent keeps no other copy.\nSend /clean {what} yes to confirm.")
+    freed = removed = 0
+    for _, f in plan:
+        try:
+            n = f.stat().st_size
+            f.unlink()
+            removed += 1
+            freed += n
+        except OSError as e:
+            log.warning("Could not delete %s: %s", f.name, e)
+    return (f"🧹 Deleted {videos} video(s) and {removed - videos} other file(s), freed {human_size(freed)}. "
+            "The inbox and waiting Instagram posts were not touched.\n" + storage_text(compact=True))
+
+
 def remote_command(text: str) -> bool:
-    """/status, /jobs, /cancel, /restart, /stop from Telegram. Returns True if the message was one of these."""
+    """/status, /jobs, /cancel, /disk, /clean, /restart, /stop from Telegram. Returns True if the message was one of these."""
     parts = text.strip().split()
     if not parts or not parts[0].startswith("/"):
         return False
@@ -836,6 +926,8 @@ def remote_command(text: str) -> bool:
                 "go, then for the title and caption.\n\nCommands:\n  /status   what I am doing now\n"
                 "  /jobs     list the Instagram posts that are waiting\n"
                 "  /cancel   remove waiting Instagram posts (/cancel 1 or /cancel all)\n"
+                "  /disk     how many videos are kept here, and the free disk space\n"
+                "  /clean    delete cancelled videos (/clean done or /clean all also delete posted ones)\n"
                 "  /restart  restart the agent (when started with run_agent.bat or the server service)\n"
                 "  /stop     stop the agent")
     elif cmd == "/status":
@@ -844,6 +936,10 @@ def remote_command(text: str) -> bool:
         tg_send(jobs_text())
     elif cmd == "/cancel":
         tg_send(cancel_jobs(args))
+    elif cmd in ("/disk", "/storage"):
+        tg_send(storage_text())
+    elif cmd == "/clean":
+        tg_send(clean_command(args))
     elif cmd == "/restart":
         if os.getenv("AGENT_LOOP") == "1":
             tg_send("Restarting the agent. It will be back in about 15 seconds. A video you were answering about "

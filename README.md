@@ -1,6 +1,6 @@
 # Social Uploader Agent
 
-**Version 1.1.0**
+**Version 1.2.0**
 
 Post one video to **YouTube, Facebook and Instagram** from your phone. You send the video, and the agent asks you
 (on Telegram) where it should go, takes your title and caption, adds your fixed mention, hashtags and tags, then uploads and
@@ -14,33 +14,81 @@ Nothing is posted anywhere you did not choose.
 > It is not affiliated with or endorsed by Google, YouTube, Meta, Facebook, Instagram, Telegram, Oracle or Cloudflare. Their rules and APIs change, and they can limit or close an account, so read their terms before you use it.
 > You must create your own Telegram bot, Google project, Meta app and server. Nothing here gives you access to anyone else's accounts.
 
-You can run it in either of two ways:
+## How to use this guide
 
-| | **Track A: Windows PC** | **Track B: free Oracle Cloud server** |
+The guide has **two stages. Do them in this order.**
+
+| | **Stage 1: Set it up on your PC** (required) | **Stage 2: Move it to an always-on server** (optional) |
 |---|---|---|
-| Cost | Free | Free (needs a credit card that works abroad, and some rules: **read section 9.0 first**) |
-| PC must stay on | Yes, for Instagram post times and while you answer | **No**. Your PC can be off |
-| Setup time | About 2 to 3 hours (mostly the Meta/Instagram part) | Track A's setup plus about 1.5 hours |
-| Best for | Trying it out, or posting at times when your PC is on anyway | Hands-off, always-on posting |
+| What you get | A working agent: YouTube, Facebook and Instagram posts from Telegram | The same agent running all day, so Instagram posts go out even when your PC is off |
+| Cost | Free | Free (needs a credit card, or a debit card that works like one, with international payments on, and some rules: **read section 9.0 first**) |
+| PC must stay on | Yes, at Instagram post times and while you answer | **No** |
+| Typical time, first run | 3 to 6 hours, mostly the Facebook and Instagram part | 2 to 3 hours more, plus waiting for the Oracle account |
+| Start it when | Now | **Only after Stage 1 works** and every box in its final checkpoint is ticked |
 
-Both tracks share the same setup first (Parts 1 to 5). Then you pick Track A or Track B.
+The times are typical for a first run. Yours will differ.
+
+**Why two stages?** You set everything up and prove it on your PC first, where mistakes are easy to fix. Only then do you spend time, and risk an account, on a server. If Stage 2 ever fails, you still have a working agent on your PC.
+
+**Who this is for:** a careful beginner who can follow steps in order, copy commands exactly, and read an error message. Some parts (the Meta app, Instagram linking, the Google consent screen) are fiddly, and the companies change their menus, so expect to slow down there.
+
+**How to use the checkboxes.** Each part ends with a **Checkpoint**: a short list of things that must be true before you go on. On GitHub the boxes are read-only, so copy the list into your own notes and tick it there. **Do not go on until every box is true.** If a box is not true, look up the exact error in section 14 (Troubleshooting) before you continue.
 
 ## Quick start
 
-**You need:** a YouTube channel, a Facebook Page and/or an Instagram Creator or Business account linked to a Page, a Telegram account, a Google account, and a computer with Python 3.10 or newer (Windows commands are used in the guide). For an always-on server you also need a card that works abroad (read section 9.0 first).
+**You need:** a YouTube channel, a Facebook Page and/or an Instagram Creator or Business account linked to a Page, a Telegram account, a Google account, and a computer with Python 3.10 or newer (Windows commands are used in the guide).
 
-1. **Install the tools and get the files** (section 3): Python, ffmpeg, cloudflared, then `pip install -r requirements.txt`.
-2. **Fill in your settings** (section 4): copy `settings.example.json` to `settings.json` and put in your handles, hashtags, tags and usual times.
-3. **Make a Telegram bot** with @BotFather and put its token in `.env` (section 5).
-4. **Connect YouTube** (section 6): a Google Cloud project, then `python agent.py --auth`.
-5. **Connect Facebook and Instagram** (section 7): a Meta app, then `python meta_setup.py`.
-6. **Check everything:** `python agent.py --check` and `python tests/test_project.py`.
-7. **Run it** on your PC with `run_agent.bat` (section 8), or on a free server (section 9).
-8. **Post:** put a video in the inbox folder (or your Google Drive folder). The bot asks where to post it. Answer with the places, then your title and caption, then `ok` (section 10).
+**Stage 1: set it up on your PC** (required)
+- [ ] **Install the tools and get the files** (section 3): Python, ffmpeg, cloudflared, then `pip install -r requirements.txt`.
+- [ ] **Fill in your settings** (section 4): copy `settings.example.json` to `settings.json` and put in your handles, hashtags, tags and usual times.
+- [ ] **Make a Telegram bot** with @BotFather and put its token in `.env` (section 5).
+- [ ] **Connect YouTube** (section 6): a Google Cloud project, then `python agent.py --auth`.
+- [ ] **Connect Facebook and Instagram** (section 7): a Meta app, then `python meta_setup.py`.
+- [ ] **Run it on your PC** (section 8): `python agent.py --check`, `python tests/test_project.py`, then `run_agent.bat`.
+- [ ] **Post** (section 10): put a video in the inbox folder. The bot asks where to post it. Answer with the places, then your title and caption, then `ok`.
+
+**Stage 2: move it to an always-on server** (optional, only after Stage 1 works)
+- [ ] **Read the rules** (section 9.0), then create the Oracle account and the server (sections 9.2 and 9.3).
+- [ ] **Copy the files and run the setup script** (sections 9.4 to 9.6).
+- [ ] **Hand over from the PC to the server** (section 9.7), then **add Google Drive** (section 9.8).
+- [ ] **Test with your PC off**, and set a budget alert.
 
 **What happens after `ok`:** YouTube uploads the video as private and turns it public at your time. Facebook schedules it. Instagram has no scheduler for programs, so the agent itself publishes at your time, which means **the agent must be running then**. Allow a few minutes for each video.
 
 **Good to know:** the first setup takes a few hours, mostly the Meta and Instagram part. Test with a short video that you can delete. Section 15 says what has been tested live and what the limits are.
+
+## Video size and length limits
+
+**The agent has no size limit of its own.** The limits come from the platforms, from your disk space and from your internet speed. Read this before your first post.
+
+| Where | Limit for one video | Notes |
+|---|---|---|
+| **Instagram Reels** | **300 MB**, and **3 seconds to 15 minutes**. MP4 or MOV, H.264 or HEVC video, AAC audio | From Meta's Instagram API documentation. **This is the tightest limit**, so it decides the size when you post to all three |
+| Facebook | Up to 10 GB and 240 minutes | From summaries of Meta's limits. Check Meta's current page |
+| YouTube | Up to 256 GB. Up to 12 hours on a verified channel, and 15 minutes on an unverified one. Shorts: up to 3 minutes | From Google's documentation, as summarised by other tools. Verify your channel with your phone number to allow long videos |
+
+**Rule of thumb: keep every video under 300 MB, and under 100 MB if you can.** Some guides still say Reels are limited to 90 seconds. Meta's documentation now allows up to 15 minutes, but this project was only tested with videos of about 30 to 70 seconds.
+Each video is sent out three times (YouTube, Facebook, Instagram), so a 300 MB video means about 900 MB of upload for one post.
+
+**Stage 1 (your PC):** the limits are the platforms' limits above, the free space on your disk, and your upload speed. Big files simply take longer.
+
+**Stage 2 (the free Oracle server):** the platform limits still apply, and in addition:
+
+| Free resource | Limit | What it means for you |
+|---|---|---|
+| Disk | About 45 GB of usable space for the whole server, shared by the system and every saved video. On the author's server about 39 GB were free after the system and the agent were installed (`/disk` shows yours). Oracle's free total is 200 GB of boot plus block volumes | Delete old videos (section 9.9). A full disk makes the agent fail to save a video. It does **not** create a bill |
+| Memory | 1 GB | The agent reads the file in pieces, so one video at a time is fine. A very big file only makes it slow |
+| Speed | The free shape has about 0.48 Gbps, and the YouTube and Facebook steps took up to about 15 to 20 minutes for a 1 minute 10 second video in the author's test | Small files finish much sooner |
+| Outbound data | 10 TB per month free | One post sends the video out about 3 times. At 300 MB that is about 1 GB per post, so you would need thousands of posts a month to reach it |
+
+**Recommended size on the free server: 20 to 100 MB per video.** For example, export at about 5 to 8 Mbps: a 60 second video is then roughly 40 to 60 MB, which also uploads faster and fits easily. Anything over 300 MB is refused by Instagram.
+
+**Will a bigger video cost money?**
+- **A video over a platform limit is refused by that platform** (you see an error in Telegram). It is not charged.
+- **Oracle does not charge by file size.** It meters storage (200 GB free in total) and outbound data (10 TB a month free). As far as we know, a Free Tier account that you never upgraded cannot create paid resources, so a full disk or a big file cannot produce a surprise bill.
+- **Charges only become possible if you upgrade to Pay As You Go and then go past the free allowances.** Do not upgrade. These figures come from Oracle's Always Free documentation and other users' reports, and they can change, so check Oracle's current "Always Free resources" page.
+
+**If you cancel a video:** the agent keeps the file. `/cancel` (for waiting Instagram posts) and the reply `cancel` or `skip` (before you confirm) move the video to the `skipped` folder, where it stays **until you delete it**. Posted videos stay in `done` unless you set `KEEP_VIDEOS=0`. Nothing is left at Instagram: a prepared video that is never published expires by itself. To free the space, send `/disk` in Telegram to see what is kept, then `/clean` to delete the cancelled videos (`/clean done` or `/clean all` also delete posted ones, after you confirm). See also "Free up disk space" in section 9.9. On a PC you can also delete the files in the `skipped` and `done` folders in File Explorer.
 
 ---
 
@@ -52,8 +100,8 @@ Both tracks share the same setup first (Parts 1 to 5). Then you pick Track A or 
 5. [Part 3: Telegram bot](#5-part-3-telegram-bot)
 6. [Part 4: YouTube](#6-part-4-youtube)
 7. [Part 5: Facebook and Instagram](#7-part-5-facebook-and-instagram)
-8. [Track A: run it on a Windows PC](#8-track-a-run-it-on-a-windows-pc)
-9. [Track B: run it on a free Oracle Cloud server](#9-track-b-run-it-on-a-free-oracle-cloud-server)
+8. [Part 6: Run it on your PC and finish Stage 1](#8-part-6-run-it-on-your-pc-and-finish-stage-1)
+9. [Stage 2 (optional): Run it on a free Oracle Cloud server](#9-stage-2-optional-run-it-on-a-free-oracle-cloud-server)
 10. [Daily use](#10-daily-use)
 11. [Settings and environment reference](#11-settings-and-environment-reference)
 12. [Security and credentials](#12-security-and-credentials)
@@ -90,7 +138,7 @@ Both tracks share the same setup first (Parts 1 to 5). Then you pick Track A or 
 | Instagram | Prepares the video and **waits** | **The agent itself**, so it must be running at that time |
 
 Instagram has no scheduler that a program can use (only Instagram's own app has one). That is why the agent must be running at
-Instagram post times. It is also the reason Track B exists.
+Instagram post times. It is also the reason Stage 2 exists.
 
 **How Instagram scheduling works**
 
@@ -99,9 +147,9 @@ Instagram's own scheduler exists only inside Instagram's and Meta's apps. A prog
 2. About 20 hours before the post time, the agent prepares the video: it opens a temporary free link (cloudflared) so Instagram can fetch the file, and Telegram says "ready and will post at ...".
    It waits until then because Instagram only keeps a prepared video for 24 hours.
 3. At the exact time the agent publishes it and sends "posted" with the link. The video then moves to the `done` folder.
-4. **The agent must be running at those times.** On a server it always is. In Track A your PC must be on and awake.
+4. **The agent must be running at those times.** On a server it always is. In Stage 1 your PC must be on and awake.
 5. If the agent was off at the time, it publishes late once it is running again, as long as that is within about a day. After that, Instagram has dropped the prepared video, you get an error message in Telegram, and you send the video again.
-6. `/status` shows the Instagram posts that are waiting, and `/jobs` lists them with numbers. Remove one with `/cancel 1`, several with `/cancel 1 2`, or all with `/cancel all`.
+6. `/status` shows the Instagram posts that are waiting, and `/jobs` lists them with numbers. Remove one with `/cancel 1`, several with `/cancel 1 2`, or all with `/cancel all`. The cancelled video is kept in the `skipped` folder until you delete it: send `/clean` (section 9.9).
    This removes **Instagram posts only**. YouTube and Facebook posts are held by Google and Facebook, so delete those in YouTube Studio and Meta Business Suite.
    (If the agent will not start, you can also stop it, delete that post's block in `schedule.json`, and start it again.)
 
@@ -120,20 +168,24 @@ YouTube and Facebook are different: Google and Facebook hold their own schedules
 
 ## 2. What you need
 
-- A **YouTube channel**.
-- A **Facebook Page** that you are the admin of (a Page, not a personal profile).
-- An **Instagram Creator or Business account**, linked to a Facebook Page. **Each Instagram account needs its own Page.**
-- A **Telegram** account (on your phone).
-- A **Google account** (the one that owns the channel; also used for Google Drive).
-- A **Facebook account** that manages those Pages. It is also used to register as a Meta developer (free).
-- A **Windows PC** (or Linux/macOS) for the setup. Windows commands are used in this guide.
-- For Track B only: an **Oracle Cloud** account and a **Visa or Mastercard credit card** for verification.
+- [ ] A **YouTube channel**.
+- [ ] A **Facebook Page** that you are the admin of (a Page, not a personal profile).
+- [ ] An **Instagram Creator or Business account**, linked to a Facebook Page. **Each Instagram account needs its own Page.**
+- [ ] A **Telegram** account (on your phone).
+- [ ] A **Google account** (the one that owns the channel; also used for Google Drive).
+- [ ] A **Facebook account** that manages those Pages. It is also used to register as a Meta developer (free).
+- [ ] A **Windows PC** (or Linux/macOS) for the setup. Windows commands are used in this guide.
+- [ ] For Stage 2 only: an **Oracle Cloud** account, a **credit card or a debit card that works like one** (section 9.2), a phone for the authenticator app, and international online payments switched on.
 
-Nothing here costs money. The only payment step is the card check when you sign up for Oracle (Track B).
+Nothing here costs money. The only payment step is the card check when you sign up for Oracle (Stage 2).
 
 ---
 
+> **Stage 1 starts here: set it up on your PC.** Parts 1 to 6 (sections 3 to 8). You can stop after any part and come back later.
+
 ## 3. Part 1: Install the tools and get the files
+
+**Time: about 20 to 30 minutes.**
 
 ### Put the files in a folder
 Make a folder, for example `C:\social-uploader`. **Do not** put it inside OneDrive, Google Drive or Dropbox, because it will hold
@@ -179,9 +231,17 @@ python agent.py --check
 ```
 At this stage, `--check` lists MISSING for several things. That is your to-do list for the next parts.
 
+**Checkpoint: Part 1 is done when**
+- [ ] `python --version`, `ffmpeg -version` and `cloudflared --version` each print a version.
+- [ ] After `venv\Scripts\activate`, the prompt starts with `(venv)`.
+- [ ] `python agent.py --version` prints `Social uploader agent 1.2.0`.
+- [ ] `python agent.py --check` runs. It lists MISSING items at this stage, and that is normal.
+
 ---
 
 ## 4. Part 2: Your settings (`settings.json`)
+
+**Time: about 10 to 15 minutes.**
 
 Open it in Notepad (`notepad settings.json`) and replace every example value with your own. Every field is explained in
 [section 11](#11-settings-and-environment-reference). The ones to change first:
@@ -203,9 +263,15 @@ python captions.py
 ```
 It shows how a sample post will look on every platform. You can also test your own text: `python captions.py mypost.txt`.
 
+**Checkpoint: Part 2 is done when**
+- [ ] `settings.json` exists (copied from `settings.example.json`) and holds your own handles, hashtags, tags and times, with no example values left.
+- [ ] `python captions.py` prints sample posts with your handles and no error.
+
 ---
 
 ## 5. Part 3: Telegram bot
+
+**Time: about 10 minutes.**
 
 Telegram is how you control everything.
 
@@ -238,9 +304,17 @@ Telegram is how you control everything.
 
 The agent only obeys messages from your own chat id.
 
+**Checkpoint: Part 3 is done when**
+- [ ] You sent `hi` to your bot, and `python agent.py --chatid` printed your chat id.
+- [ ] `.env` holds `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
+- [ ] `python agent.py --check` says OK for "Telegram token + chat id" and "Telegram accepts the token".
+- [ ] You have not pasted the token into a chat, an email or a screenshot.
+
 ---
 
 ## 6. Part 4: YouTube
+
+**Time: about 30 to 45 minutes.**
 
 Google changes menu names sometimes. Use the nearest option if something looks different.
 
@@ -278,9 +352,17 @@ then delete the test video.
 > If Visibility shows plain *Private* with no schedule, Google may be holding uploads from an unaudited project as private.
 > Publish by hand in Studio, or apply for Google's API audit.
 
+**Checkpoint: Part 4 is done when**
+- [ ] `client_secret.json` is in the project folder, and `python agent.py --auth` created `token.json`.
+- [ ] The Google app's publishing status says **In production** (step C), or you know the login will expire after 7 days.
+- [ ] `python agent.py --check` says OK for "YouTube login".
+- [ ] A short test video sent to `yt` shows as **Scheduled** in YouTube Studio with the right title, description, tags and playlist, and you deleted it afterwards.
+
 ---
 
 ## 7. Part 5: Facebook and Instagram
+
+**Time: about 1.5 to 3 hours. This is the hardest part, so take it slowly and do it in one sitting.**
 
 This is the longest part. Do it in order, and test after each step.
 
@@ -347,11 +429,20 @@ PLATFORMS=youtube,facebook
 To test one Instagram account at a time, add `IG_ACCOUNTS=your_instagram_handle` to `.env`. Remove the line when all accounts work.
 Finally set `PLATFORMS=youtube,facebook,instagram`.
 
-Now choose Track A or Track B.
+Part 5 is done. Go on to Part 6.
+
+**Checkpoint: Part 5 is done when**
+- [ ] Each Instagram account is linked to its own Facebook Page, and Instagram's automatic sharing to Facebook is switched off.
+- [ ] `python meta_setup.py` listed your Pages with their Instagram accounts and saved the tokens and ids.
+- [ ] `python agent.py --check` says OK for every Facebook and Instagram line.
+- [ ] A test sent to `fb` shows as scheduled in **Meta Business Suite → Planner** with the right text and cover, and you deleted it.
+- [ ] A real post sent to `ig1` (and `ig2`, if you have a second account) was published at its time with the right text and cover, and the Facebook Page has no unwanted copy.
 
 ---
 
-## 8. Track A: run it on a Windows PC
+## 8. Part 6: Run it on your PC and finish Stage 1
+
+**Time: about 30 to 60 minutes.** This part finishes Stage 1: the agent runs on your PC and you have posted for real.
 
 1. Start the agent:
    ```
@@ -369,19 +460,41 @@ Now choose Track A or Track B.
 
 The PC must be on and awake at every Instagram post time. YouTube and Facebook schedule themselves, but the upload happens when you answer `ok`.
 
+**Checkpoint: Stage 1 is complete when**
+- [ ] `python agent.py --check` says OK on every line.
+- [ ] `python tests/test_project.py` ends with `OK`.
+- [ ] `run_agent.bat` is running, Telegram says the agent is running, and `/status` answers.
+- [ ] A video in the inbox makes the bot ask where to post it.
+- [ ] You have seen a YouTube post, a Facebook post and an Instagram post go through from start to finish.
+- [ ] You made a backup copy of `.env`, `settings.json` and `token.json` somewhere private (not in git, and not in a shared folder).
+- [ ] You decided: is a PC that is on at your post times enough? **If yes, you can stop here.** If you need posts to go out while the PC is off, go on to Stage 2.
+
 ---
 
-## 9. Track B: run it on a free Oracle Cloud server
+## 9. Stage 2 (optional): Run it on a free Oracle Cloud server
 
-Do Parts 1 to 5 on your PC first, so the agent works there. The server then runs the same files all the time.
+> **Stage 2 starts here.** Typical time: 2 to 3 hours the first time, plus waiting for the Oracle account to be approved.
+
+**Do you need Stage 2?** Only if you want posts to go out while your PC is off or asleep. YouTube and Facebook schedule themselves, but Instagram has no scheduler for programs, so the agent must be running at every Instagram post time. A free server keeps it running all day. If your PC is on at your post times, Stage 1 is enough and you can skip this whole section.
+
+**Stage 2 gate: do not start until every box is ticked.**
+- [ ] Stage 1 is finished: the final checkpoint at the end of section 8 is fully ticked.
+- [ ] You have seen a real Instagram post published from your PC.
+- [ ] You have a backup copy of `.env`, `settings.json` and `token.json` (and `rclone.conf`, if you use Google Drive) somewhere private.
+- [ ] You have read section 9.0 (the rules box) to the end.
+- [ ] Your card has international online payments switched on, with a low limit (section 9.2).
+- [ ] You have a phone for the authenticator app, and a safe place to keep its key.
+- [ ] You understand that the account can be closed without warning (section 9.0, point 16), and that your PC setup is your fallback.
+
+The server runs the same files as Stage 1, so most of Stage 2 is copying and running them.
 
 ### 9.0 Read this first: rules that keep your Oracle account alive
 Free cloud accounts are generous but strict. These rules come from a real problem: the author's first Oracle account was closed by Oracle's automated checks within about two weeks of setting it up. No reason was given, and support could only raise an internal appeal. We cannot prove what caused it, and Oracle can change its rules at any time. Follow these rules anyway. They cost nothing.
 
 **Before you sign up**
 1. **One account per person, with your real details.** Oracle's Free Trial and Free Tier are for first-time Oracle Cloud users, and creating or trying to create more than one free account is not allowed. Use your own name, address, phone number and email. Do not use a VPN, someone else's details, or a second email address to get around this.
-2. **Use a Visa or Mastercard credit card, and switch on "International online" payments before you sign up.** Oracle bills as a foreign company. Many Indian banks switch international online use off by default, so check the card settings in your bank's app.
-3. **Keep international payments on afterwards.** Oracle may try small payments later (a verification of about 1 US dollar, or a bill), even on a free account. If your bank refuses, Oracle records a failed payment. If you worry about big charges, set a **small per-transaction limit** in the bank's app instead of switching international use off. In the author's case, a small Oracle payment was declined with the message "International online usage disabled", and within days the console sign-in failed and the server stopped answering. We cannot prove the two are connected, so do not take the chance.
+2. **Use a credit card, or a debit card that works like a credit card, and switch on "International online" payments before you sign up.** Oracle bills as a foreign company. Many Indian banks switch international online use off by default, so check the card settings in your bank's app. Oracle's FAQ says it accepts credit cards and debit cards that function like credit cards, and does **not** accept debit cards that need a PIN, or virtual, single-use or prepaid cards (see "Which cards work" in section 9.2).
+3. **Keep international payments on afterwards.** Oracle may try small payments later (a verification of about 1 US dollar, or a bill), even on a free account (Oracle's FAQ says it may check the card again from time to time, which places another temporary hold). If your bank refuses, Oracle records a failed payment. If you worry about big charges, set a **small limit** in the bank's app or portal (for example Rs.1,000 or 10 US dollars, see the tips in section 9.2) instead of switching international use off. In the author's case, a small Oracle payment was declined with the message "International online usage disabled", and within days the console sign-in failed and the server stopped answering. We cannot prove the two are connected, so do not take the chance.
 4. **Do not remove, replace or cancel the card on the account, and do not let it expire.** Keep it under **Billing & Cost Management → Payment methods**. If your bank reissues the card, add the new one before the old one stops working. Keep the bank's SMS and email alerts on.
 5. **Use an email address you read every day, and check its spam folder.** Oracle's notices (such as "Action recommended") arrive there. Allow mail from `oracle.com` and `oraclecloud.com`. Write down your **Cloud Account Name**, user name and password in a password manager.
 6. **Sign up from your home connection**, in the same country as your card and phone number.
@@ -393,17 +506,17 @@ Free cloud accounts are generous but strict. These rules come from a real proble
 10. **Keep the server from looking idle.** Oracle can stop or reclaim an Always Free server if its CPU, memory and network use all stay below about 20% for 7 days in a row (the exact figures can change). This agent is very light, so add the keep-alive job in section 9.6, and look at the **Monitoring** graph after a few days. It is not a guarantee.
 11. **Set a budget alert** (**Billing & Cost Management → Budgets**, a very small amount, an email at 100%) and look at **Cost Analysis** the day after you create the server. The cost shown when you create the instance (for example about 2.76 US dollars a month for the boot volume) is a list price. As far as we know, that estimate does not apply the free allowance.
 12. **Read every Oracle email**, in the inbox and in spam. Never click a link in a message you did not expect. Go to cloud.oracle.com yourself.
-13. **Sign in to the console at least once a month** and check the server says **Running**. Oracle says a free account stays active as long as it has been used within the past 60 days.
+13. **Sign in to the console at least every two weeks** and check the server says **Running**. Oracle's Free Tier FAQ says an account left idle for 30 days or more may be treated as abandoned and suspended or terminated (another Oracle page I found says 60 days, so use the shorter figure). You will need your authenticator app at every sign-in (section 9.2).
 14. **Do not run anything that looks like abuse:** proxies, VPNs, crypto mining, scanning tools or heavy outgoing traffic. The Instagram step in this project uses a short-lived Cloudflare tunnel to hand each video to Instagram. It is small and brief, and Oracle gave no reason for the author's closure, so we cannot say whether it mattered. If you want to avoid it, run the agent on a PC or a home machine (section 8).
-15. **Keep every secret and file on your own computer, not only on the server.** Back up `.env`, `settings.json`, `token.json`, `rclone.conf` and your SSH key somewhere private, and keep the PC agent (Track A) ready as a fallback. Treat the free server as replaceable.
+15. **Keep every secret and file on your own computer, not only on the server.** Back up `.env`, `settings.json`, `token.json`, `rclone.conf` and your SSH key somewhere private, and keep the PC agent (Stage 1) ready as a fallback. Treat the free server as replaceable.
 
 **If something goes wrong**
 16. Signs of trouble: the console says "Invalid username or password" even after a reset, SSH times out, and the bot stops answering `/status`. Do not keep guessing passwords. Use **Forgot Password?** on the cloud sign-in page once, search your email for Oracle messages, and read section 9.13.
 17. **Do not open another free account to get around a closure.** Oracle allows one per person, and its support told the author that a different email address does not make you eligible. Ask Oracle in writing first, and wait for a clear yes.
 
 ### 9.1 Honest notes first
-- **Card:** Oracle verifies you with a **Visa or Mastercard credit card**. Prepaid, virtual and some Indian cards (for example RuPay) are often refused. A small hold
-  is made and refunded. Always Free servers are not billed. **Read section 9.0 before you sign up.**
+- **Card:** Oracle verifies you with a card. Credit cards work, and so do debit cards that function like credit cards (see "Which cards work" in section 9.2). Prepaid, virtual and PIN-only debit cards are refused, and some Indian cards (for example RuPay) are often reported as refused.
+  A small hold is made and released by your bank, usually within a few days. Always Free servers are not billed. **Read section 9.0 before you sign up.**
 - **Idle servers can be stopped.** If CPU, memory and network use all stay below about 20% for 7 days, Oracle may stop or reclaim a free server (the exact figures can change).
   Add the keep-alive job in section 9.6. Upgrading to Pay As You Go is optional, costs real money if you use paid resources, and is not needed for this.
 - **Capacity:** the ARM shape can be "out of capacity". The small AMD shape used here is almost always available.
@@ -412,14 +525,45 @@ Free cloud accounts are generous but strict. These rules come from a real proble
 
 ### 9.2 Create the Oracle account
 Use a normal home connection (no VPN), a real email, and a card with international payments switched on.
+
+**Which cards work** (from Oracle's Free Tier FAQ and what other users report; read the FAQ again before you sign up)
+
+| | Card type | Notes |
+|---|---|---|
+| Accepted | **Credit cards** (Visa, Mastercard, American Express, Discover) | The most reliable choice |
+| Accepted | **Debit cards that work like credit cards** | A physical debit card with a Visa or Mastercard logo that can pay online **without a PIN**, with international online payments switched on. You do not need a credit card. A Mastercard debit card worked for the author. Oracle's FAQ does not name a network, so other debit cards may or may not be accepted |
+| Not accepted | **Debit cards that need a PIN** | Basic ATM-style cards |
+| Not accepted | **Virtual, single-use and prepaid cards** | Including cards made inside a banking app, and gift cards |
+| Often refused | **RuPay cards (India)** | Users report that these fail at signup. Use a Visa or Mastercard instead |
+
+**Tips before you sign up**
+- **Switch on international and online payments** in your bank's app or net-banking portal before you enter the card, and keep them on (section 9.0). Look under card settings or "Manage card" for **International usage** (it may be called online, e-commerce or overseas usage). **Set the limit low, for example Rs.1,000 or 10 US dollars, whichever your bank uses.** That is enough for Oracle's verification hold (about 1 US dollar) and keeps the risk small if the card is ever misused. Some banks set a per-transaction limit and others a daily or monthly limit, and some ask for an OTP when you change it. If you later upgrade to Pay As You Go, raise the limit first, because Oracle's upgrade check is reported to be larger (about 100 US dollars).
+- **Expect a small temporary hold** (about 1 US dollar, roughly Rs.85 to 100). Your bank releases it, usually within three to five days. It is not a charge. Oracle may place such a hold again later when it checks the card.
+- **Type your name and address exactly as they appear on the card or bank statement**, because automatic fraud checks compare them.
+- **Write down which card you used** (the last four digits and the expiry, not the full number in an unprotected file). Oracle support may ask you to identify it if you lose access to your account.
+- If the card is refused, do not try many different cards. Check the bank's settings first. If signup keeps failing, contact Oracle through the chat link on the signup page.
 1. Go to **oracle.com/cloud/free** and click **Start for free**. Choose your country, enter your details and verify your email.
 2. Set a password and a **Cloud Account Name** (write it down: it is your sign-in name).
 3. Choose a **home region** near you (for India: **India West (Mumbai)**). **It cannot be changed later.**
 4. Verify your phone, add the card and submit. Wait for the "account ready" email (minutes, sometimes an hour). Until then, some pages say
    "provisioning is in progress".
-5. Sign in at **cloud.oracle.com**. The banner "Free Tier account … limited to Always Free resources" is only information.
+5. Sign in at **cloud.oracle.com**: enter your **Cloud Account Name**, click **Next**, keep the **Identity domain** as **Default**, then enter your user name (your email address) and password. Oracle then asks you to set up an authenticator app: see "Set up the authenticator app" below. A banner about your Free Trial or Free Tier account is only information.
 6. Check the home region (profile icon → **Tenancy** → **Home region**; Mumbai shows as `BOM`). Then set **Billing & Cost Management → Budgets → Create Budget** with a very small
    amount and an email alert at 100% of actual spend. **Do not upgrade to Pay As You Go.**
+
+**Set up the authenticator app (MFA).** After you sign in, Oracle asks you to set up two-step verification. From then on, **every sign-in needs a 6-digit code**, so do this carefully.
+1. On your phone, install **Oracle Mobile Authenticator**. Google Authenticator also works, and Oracle's documentation lists both as tested.
+2. On the Oracle page, choose the **Mobile App** method. A QR code appears.
+3. In the app, tap **Add account** (the plus sign) and **scan the QR code**. If you cannot scan it, choose **Enter key manually** (or the "offline mode / another authenticator app" option on the Oracle page).
+   Pick **Oracle** as the account type if the app asks, enter your **user name (usually your email address)** as the account, and type the **key** shown on the Oracle page.
+4. The app now shows a **6-digit code that changes every 30 seconds**. Type the current code on the Oracle page to finish.
+5. Sign out and sign in again to check that it works. Depending on how you enrolled, Oracle asks for the code, or sends a notification to the app that you approve with **Allow**.
+
+**Protect your access to the account:**
+- Oracle's documentation says only one device can be registered for MFA. If you lose the phone, you cannot sign in until an administrator resets MFA. As the only administrator you would need Oracle's support (section 9.13).
+- So **save the manual key** (the text shown when you choose "Enter key manually") in a password manager, or write it on paper and keep it somewhere safe. With that key you can add the account to a new phone.
+- If the console offers **backup or bypass codes**, create them and store them safely.
+- Do not uninstall the app, and keep your phone's date and time on automatic (the codes depend on the clock).
 
 ### 9.3 Create the network and the server
 1. **Network first.** Menu → **Networking → Virtual cloud networks → Actions → Start VCN Wizard → Create VCN with Internet Connectivity**. Name it `main-vcn`, leave
@@ -444,6 +588,11 @@ Use a normal home connection (no VPN), a real email, and a card with internation
    - On the **Review** page check: Ubuntu 22.04, the shape, **Public IPv4 address: Yes**, the public subnet and your key. **View estimated cost** lists only the boot volume at a list price;
      that is expected (see section 9.0, point 11). Click **Create**. Do not click any **Upgrade** button.
 4. Wait for **Running**, then copy the **Public IP address** from the instance page. The user name is `ubuntu`. (The server prompt may show the network's name, such as `ubuntu@main-vcn`. That is only a label.)
+
+**Checkpoint: the server is created when**
+- [ ] The instance says **Running** and shows a **Public IP address**.
+- [ ] The shape is `VM.Standard.E2.1.Micro` with the **Always Free-eligible** badge, the boot volume is the default (about 47 GB), and you attached no block volumes.
+- [ ] You did not click any **Upgrade** button.
 
 ### 9.4 Connect from your PC
 Fix the key file's permissions first, because Windows refuses a key that others can read:
@@ -497,6 +646,13 @@ The last line must show two lines: the Drive sync (`... sync_inbox.sh`, once sec
 The job runs a light 4-minute load at the lowest priority once an hour. Re-running the setup script keeps it. A few days later, open **Compute → Instances → your instance → Monitoring**
 and look at the CPU graph. If it never rises above 20%, run the job more often (for example `*/30 * * * *` instead of `@hourly`).
 
+**Checkpoint: the agent runs on the server when**
+- [ ] `ssh` connects, and the prompt shows `ubuntu@...`.
+- [ ] `ls -la ~/social-uploader` lists `.env`, `token.json`, `agent.py` and the `server` folder.
+- [ ] The setup script finished and its check says OK on every line.
+- [ ] `sudo systemctl status social-uploader` says **active (running)**.
+- [ ] `crontab -l` shows the keep-alive line (`@hourly ... /dev/null 2>&1`).
+
 ### 9.7 Hand over from the PC to the server
 1. **Stop the PC agent by closing its window.** Do not send `/stop` for this: `/stop` goes to whichever agent is reading the bot, which could be the server one.
 2. Remove the PC agent's automatic start (the Startup shortcut or the Task Scheduler entry). Two agents at once answer every message twice.
@@ -526,6 +682,17 @@ The server checks a Drive folder every minute and moves new videos into the agen
 
 `rclone.conf` gives access to your Drive, so keep it private.
 
+**Checkpoint: Stage 2 is complete when**
+- [ ] The PC agent (and any Drive copy script on the PC) is stopped, so only one agent reads the bot.
+- [ ] `/status` answers from the server and shows version 1.2.0.
+- [ ] `rclone lsd gdrive:` lists `social-inbox` on the server (if you use Google Drive).
+- [ ] A video uploaded to the Drive folder made the bot ask where to post it.
+- [ ] With your PC **off**, a real Instagram post went out at its time.
+- [ ] You set a budget alert, and **Cost Analysis** shows no unexpected charge the next day.
+- [ ] You backed up `.env`, `settings.json`, `token.json`, `rclone.conf`, the SSH key and the authenticator key somewhere private.
+- [ ] You put a reminder in your calendar to sign in to Oracle every two weeks.
+- [ ] You know how to check free disk space and delete old videos (`/disk` and `/clean` in Telegram, or "Free up disk space" in this section).
+
 ### 9.9 Everyday server checks
 ```
 sudo systemctl status social-uploader --no-pager
@@ -539,6 +706,32 @@ df -h /
 - The server's clock is not important: times follow the time zone in `settings.json`.
 - Once a month: sign in to the Oracle console, check the server says **Running**, and look at **Monitoring** and **Cost Analysis**.
 - Install updates now and then: `sudo apt-get update && sudo apt-get upgrade -y`, then `sudo reboot`. Do not reboot within half an hour of an Instagram post time.
+
+**Free up disk space.** The server has only about 45 GB of usable space (about 39 GB free on the author's server after setup, which is room for roughly 400 videos of 100 MB), so delete videos you no longer need. **The easy way is Telegram:** send `/disk` to see how many videos are kept and how much disk is free, then `/clean` to delete the cancelled ones (`/clean done` and `/clean all` also delete posted videos, after you confirm). The agent also warns you in `/disk` and `/status` when less than 3 GB is free. By hand, videos can sit in four folders under `~/social-uploader`:
+
+| Folder | What is in it | Safe to delete? |
+|---|---|---|
+| `inbox` | Videos waiting for you to answer the bot | Only if you do not want to post them |
+| `scheduled` | Videos for Instagram posts that are still waiting (and any that failed) | **Not while posts are waiting.** First check that `/jobs` says "No Instagram posts are waiting" |
+| `skipped` | Videos you cancelled (`/cancel`, or `cancel` or `skip` in the chat) | Yes |
+| `done` | Posted videos, kept unless `KEEP_VIDEOS=0` | Yes, once you no longer need them |
+
+Check what is using the space, then delete:
+```
+df -h /
+du -sh ~/social-uploader/*/
+ls -lh ~/social-uploader/skipped
+rm -f ~/social-uploader/skipped/*
+rm -f ~/social-uploader/done/*.mp4
+```
+To keep it tidy automatically, set `KEEP_VIDEOS=0` in the server's `.env` (posted videos are then deleted straight away), and add a daily job that deletes cancelled videos older than 3 days. Type these four lines one at a time:
+```
+crontab -l > /tmp/cron.txt
+echo '@daily find $HOME/social-uploader/skipped -type f -mtime +3 -delete' >> /tmp/cron.txt
+crontab /tmp/cron.txt
+crontab -l
+```
+Videos that came from Google Drive are moved out of the Drive folder, and Google keeps them in the Drive trash for 30 days. Keep your own copy of anything you care about.
 
 ### 9.10 Update the agent later
 Edit the two lines at the top of `deploy_to_server.bat` (your key path and `ubuntu@YOUR_SERVER_IP`), double-click it, then send `/restart` to your bot.
@@ -582,7 +775,7 @@ had been terminated by the system after an audit. They could not give details, r
 
 ## 10. Daily use
 
-1. Get the video to the agent: put it in the `inbox` folder (Track A, or `scp` it to the server) or save it in your Google Drive folder.
+1. Get the video to the agent: put it in the `inbox` folder (on your PC, or `scp` it to the server) or save it in your Google Drive folder.
    For large files copied by hand, upload under a temporary name and rename when finished, for example
    `scp -i C:\keys\oracle.key video.mp4 ubuntu@YOUR_SERVER_IP:~/social-uploader/inbox/video.mp4.part`, then on the server
    `mv ~/social-uploader/inbox/video.mp4.part ~/social-uploader/inbox/video.mp4`.
@@ -611,7 +804,7 @@ had been terminated by the system after an audit. They could not give details, r
 | `all 8am` | The same time for every chosen place |
 | `pages yt ig1` | Changes the places. Times you already changed are kept |
 | `edit` | Send a new title and caption |
-| `cancel` | Skip this video (it moves to the `skipped` folder) |
+| `cancel` | Skip this video (it moves to the `skipped` folder and stays there until you delete it: send `/clean`, see section 9.9) |
 
    Time formats: `8pm`, `8:30pm`, `8:00 pm`, `20:00`. A time without am/pm, like `8`, means 8 in the morning. YouTube and Facebook need a time at least 15 minutes ahead.
 5. After `ok`: YouTube is uploaded (private, public at your time, in your playlist), Facebook is scheduled, and the agent holds Instagram until its time. The single result message appears only when all chosen places are done, and Instagram needs a few minutes to process each video, so be patient.
@@ -626,13 +819,16 @@ Several videos in the inbox are handled one at a time.
 | `/help` or `/start` | Short guide |
 | `/status` | Alive, version, what it is doing, the Instagram posts waiting |
 | `/jobs` | Lists the waiting Instagram posts with numbers |
-| `/cancel 1`, `/cancel 1 2`, `/cancel all` | Removes waiting Instagram posts (numbers from `/jobs`). The video moves to the `skipped` folder |
+| `/cancel 1`, `/cancel 1 2`, `/cancel all` | Removes waiting Instagram posts (numbers from `/jobs`). The video moves to the `skipped` folder and stays on disk until you delete it (send `/clean`, or see section 9.9) |
+| `/disk` | Shows how many videos are kept in each folder (inbox, scheduled, skipped, done), how big they are, and the free disk space |
+| `/clean` | Deletes the **cancelled** videos (the `skipped` folder) and says how much space it freed. It never touches the inbox or Instagram posts that are still waiting |
+| `/clean done` or `/clean all` | Also deletes **posted** videos (the `done` folder). It first asks you to confirm with `/clean done yes` or `/clean all yes`. The small `.results.json` records are kept |
 | `/restart` | Restarts the agent (works when started with `run_agent.bat` or the server service) |
 | `/stop` | Stops the agent for good. Waiting Instagram posts do not go out until it runs again |
 
 **Preview a cover** before posting: `python agent.py --cover C:\path\video.mp4` saves the frame as a picture. Add a number to try another second, for example `... video.mp4 12`.
 
-**A message cannot start the agent.** The agent is the program that reads Telegram. If it is not running (PC off, closed window), start it yourself (Track A) or in the Oracle console (Track B).
+**A message cannot start the agent.** The agent is the program that reads Telegram. If it is not running (PC off, closed window), start it yourself (Stage 1) or in the Oracle console (Stage 2).
 
 ---
 
@@ -737,6 +933,7 @@ Several videos in the inbox are handled one at a time.
 | I posted a test video and want to cancel it | Instagram: `/jobs`, then `/cancel 1` (or `/cancel all`). YouTube: delete it in YouTube Studio. Facebook: delete it in Meta Business Suite. The agent cannot cancel those two |
 | "Time … has passed or is too close" | Choose a later date or time (YouTube and Facebook need 15+ minutes ahead) |
 | Nothing happens when I add a video | Wait about a minute. Only `.mp4`, `.mov`, `.m4v`. Check the folder (`INBOX_DIR`). Check `/status` |
+| Instagram refuses the video, or the server disk is full | Instagram allows 300 MB and 3 seconds to 15 minutes per Reel. Export a smaller file. For a full disk, send `/disk` and then `/clean`, or see "Free up disk space" in section 9.9 |
 | Video from Drive never arrives | `rclone lsd gdrive:` must list `social-inbox`. Read `~/social-uploader/sync.log`. Check `crontab -l`. Use Google Drive, not Google Photos |
 | `UNPROTECTED PRIVATE KEY FILE` | Fix the key permissions (9.4), including the same-name note |
 | `Permission denied (publickey)` | Wrong key file or user. Use the key you made and `ubuntu@` |
@@ -745,6 +942,7 @@ Several videos in the inbox are handled one at a time.
 | Your bank declines an Oracle payment ("International online usage disabled") | Switch on International online for the card (a small per-transaction limit is fine). See section 9.0 |
 | The instance wizard shows only paid shapes (E4, E5) | Click **Change shape → Specialty and previous generation**, then pick `VM.Standard.E2.1.Micro` |
 | The wizard's estimated cost shows a boot volume price | It is a list price. Check **Cost Analysis** the next day. See section 9.0, point 11 |
+| Oracle asks for a 6-digit code and you no longer have the phone or the app | Try the saved manual key or the backup codes first. Otherwise contact Oracle's chat support (section 9.13). An administrator has to reset MFA |
 | `bad interpreter` or `$'\r': command not found` | Run `sed -i 's/\r$//' ~/social-uploader/server/*.sh`. Git users: `.gitattributes` prevents this |
 | Server pasting problems | Right-click once, Shift+Insert, or use PowerShell. Type short commands by hand |
 
@@ -755,7 +953,7 @@ Several videos in the inbox are handled one at a time.
 **Tested live by the author (up to version 1.1.0):** Telegram control; YouTube upload, schedule, tags, description, playlist; Facebook chunked upload, schedule, text and cover;
 Instagram linking, token setup and the helper; **publishing real Instagram posts at their set time on both Instagram accounts, run from the server with the PC off**; `/cancel all` removing queued Instagram posts; the Oracle server setup;
 Google Drive sync; the choose-where-to-post flow; time commands; heading removal.
-The automated tests (section 16) cover all of this offline. Your results may differ: platform rules, app review states and account types change, so run the tests in section 7.4 on your own accounts before you rely on it.
+The automated tests (section 16) cover all of this offline. Version 1.2.0 adds `/disk` and `/clean`. They are covered by the offline tests, but have not yet been run on a real server. Your results may differ: platform rules, app review states and account types change, so run the tests in section 7.4 on your own accounts before you rely on it.
 
 **Limits**
 - YouTube's free quota allows roughly 6 uploads a day. Projects Google has not audited may keep uploads private.
@@ -831,4 +1029,4 @@ Improvements are welcome as pull requests: run `python tests/test_project.py` fi
 | `python tests/test_project.py -v` | Runs the offline tests |
 | `bash ~/social-uploader/server/setup_server.sh` | One-time server setup (run on the server) |
 | `sudo systemctl status/start/stop/restart social-uploader` | Controls the agent on the server |
-| `/help`, `/status`, `/jobs`, `/cancel`, `/restart`, `/stop` | Bot commands in Telegram |
+| `/help`, `/status`, `/jobs`, `/cancel`, `/disk`, `/clean`, `/restart`, `/stop` | Bot commands in Telegram |
