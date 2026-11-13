@@ -699,7 +699,7 @@ class ProjectFileTests(unittest.TestCase):
     def test_line_endings(self):
         for name in ("server/setup_server.sh", "server/sync_inbox.sh", "server/social-uploader.service", "agent.py"):
             self.assertNotIn(b"\r\n", (ROOT / name).read_bytes(), f"{name} must use LF line endings")
-        for name in ("run_agent.bat", "deploy_to_server.bat"):
+        for name in ("run_agent.bat", "deploy_to_server.bat", "sync_drive_pc.bat"):
             data = (ROOT / name).read_bytes()
             self.assertEqual(data.count(b"\n"), data.count(b"\r\n"), f"{name} must use CRLF line endings")
 
@@ -730,7 +730,7 @@ class ProjectFileTests(unittest.TestCase):
             self.assertIn(flag, readme, f"README does not mention {flag}")
         for command in ("/status", "/jobs", "/cancel", "/disk", "/clean", "/restart", "/stop", "/help"):
             self.assertIn(command, readme)
-        for name in ("agent.py", "captions.py", "meta_setup.py", "run_agent.bat", "deploy_to_server.bat",
+        for name in ("agent.py", "captions.py", "meta_setup.py", "run_agent.bat", "deploy_to_server.bat", "sync_drive_pc.bat",
                      "settings.example.json", ".env.example", "server/setup_server.sh", "server/sync_inbox.sh"):
             self.assertTrue((ROOT / name).exists(), f"{name} is missing")
             self.assertIn(name.split("/")[-1], readme, f"README does not mention {name}")
@@ -756,7 +756,7 @@ class ProjectFileTests(unittest.TestCase):
             "public IP address": r"\b(?!127\.|10\.|0\.|192\.168\.|203\.0\.113\.)\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b",
         }
         for name in ("agent.py", "captions.py", "meta_setup.py", "README.md", "settings.example.json", ".env.example",
-                     "run_agent.bat", "deploy_to_server.bat", "server/setup_server.sh", "server/sync_inbox.sh",
+                     "run_agent.bat", "deploy_to_server.bat", "sync_drive_pc.bat", "server/setup_server.sh", "server/sync_inbox.sh",
                      "server/social-uploader.service", "tests/test_project.py"):
             text = self.read(name)
             for label, pattern in patterns.items():
