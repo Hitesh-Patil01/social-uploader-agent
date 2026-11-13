@@ -7,6 +7,7 @@ No internet, no accounts and no tokens are needed. Every call to YouTube, Facebo
 Google is replaced by a fake, and the tests work on a temporary copy of the project, so your own files are never touched.
 """
 import builtins
+import collections
 import contextlib
 import io
 import json
@@ -459,6 +460,105 @@ class QueueCommandTests(AgentCase):
         self.assertIn("No video is waiting", self.say("/something"))
 
 
+class StorageCommandTests(AgentCase):
+    """/disk shows what is kept on the machine. /clean deletes cancelled (and, if you confirm, posted) videos only."""
+
+    def put(self, folder, name, size=10):
+        folder = Path(folder)
+        folder.mkdir(exist_ok=True)
+        f = folder / name
+        f.write_bytes(b"x" * size)
+        return f
+
+    def test_disk_lists_every_folder_with_counts_and_sizes(self):
+        self.put(agent.INBOX, "a.mp4", 2048)
+        self.put(agent.SKIPPED, "b.mp4", 3 * 1024 * 1024)
+        self.put(agent.SKIPPED, "c.mov")
+        out = self.say("/disk")
+        self.assertIn("inbox (waiting for your answer): 1 video(s), 2.0 KB", out)
+        self.assertIn("skipped (cancelled): 2 video(s), 3.0 MB", out)
+        self.assertIn("scheduled (Instagram posts waiting): 0 video(s)", out)
+        self.assertIn("done (posted): 0 video(s)", out)
+        self.assertIn("Disk:", out)
+
+    def test_status_has_a_short_storage_line(self):
+        self.put(agent.DONE, "z.mp4")
+        self.assertIn("Videos kept: inbox 0, scheduled 0, skipped 0, done 1.", self.say("/status"))
+
+    def test_clean_deletes_only_cancelled_videos(self):
+        inbox = self.put(agent.INBOX, "keep1.mp4")
+        waiting = self.put(agent.SCHEDULED, "keep2.mp4")
+        posted = self.put(agent.DONE, "keep3.mp4")
+        record = self.put(agent.DONE, "keep3.results.json")
+        for name in ("c1.mp4", "c2.mov", "c1.cover.jpg", "c1.txt"):
+            self.put(agent.SKIPPED, name)
+        out = self.say("/clean")
+        self.assertIn("Deleted 2 video(s) and 2 other file(s)", out)
+        self.assertEqual(list(agent.SKIPPED.iterdir()), [])
+        for f in (inbox, waiting, posted, record):
+            self.assertTrue(f.exists(), f.name)
+        self.assertIn("Nothing to delete", self.say("/clean"))
+
+    def test_clean_done_asks_first_and_keeps_the_records(self):
+        video = self.put(agent.DONE, "p.mp4", 1000)
+        cover = self.put(agent.DONE, "p.cover.jpg")
+        record = self.put(agent.DONE, "p.results.json")
+        cancelled = self.put(agent.SKIPPED, "s.mp4")
+        self.assertIn("/clean done yes", self.say("/clean done"))
+        self.assertTrue(video.exists() and record.exists())  # nothing is deleted without the confirmation
+        self.assertIn("Deleted 1 video(s)", self.say("/clean done yes"))
+        self.assertFalse(video.exists() or cover.exists())
+        self.assertTrue(record.exists())
+        self.assertTrue(cancelled.exists())  # only plain /clean removes cancelled videos
+
+    def test_clean_all_needs_yes_and_never_touches_waiting_posts(self):
+        waiting = self.put(agent.SCHEDULED, "w.mp4")
+        inbox = self.put(agent.INBOX, "i.mp4")
+        cancelled = self.put(agent.SKIPPED, "s.mp4")
+        posted = self.put(agent.DONE, "d.mp4")
+        self.say("/clean all")
+        self.assertTrue(cancelled.exists() and posted.exists())
+        self.say("/clean all yes")
+        self.assertFalse(cancelled.exists() or posted.exists())
+        self.assertTrue(waiting.exists() and inbox.exists())
+
+    def test_clean_never_touches_folders_or_the_targets_of_links(self):
+        outside = self.put(TMP, "outside_file_that_must_survive.mp4")
+        agent.SKIPPED.mkdir(exist_ok=True)
+        try:
+            (agent.SKIPPED / "link.mp4").symlink_to(outside)
+        except (OSError, NotImplementedError):
+            self.skipTest("this computer does not allow symbolic links")
+        inner = self.put(agent.SKIPPED / "subfolder", "inner.mp4")
+        self.say("/clean")
+        self.assertTrue(outside.exists())
+        self.assertTrue(inner.exists())
+
+    def test_unknown_words_do_nothing(self):
+        keep = self.put(agent.SKIPPED, "s.mp4")
+        for text in ("/clean everything", "/clean skipped done", "/clean yes yes foo"):
+            with self.subTest(text=text):
+                self.assertIn("Use /clean", self.say(text))
+        self.assertTrue(keep.exists())
+
+    def test_cancel_then_clean_frees_the_video(self):
+        video = self.put(agent.SCHEDULED, "q.mp4", 500)
+        agent.save_jobs([{"id": "j1", "video": str(video), "account": "your_instagram_handle", "caption": "c",
+                          "publish_at": (datetime.now(agent.TZ) + timedelta(hours=30)).isoformat(),
+                          "status": "pending", "container_id": None}])
+        self.say("/cancel 1")
+        self.assertTrue((agent.SKIPPED / "q.mp4").exists())  # kept after cancelling
+        self.assertIn("Deleted 1 video(s)", self.say("/clean"))
+        self.assertFalse((agent.SKIPPED / "q.mp4").exists())
+
+    def test_low_disk_space_shows_a_warning(self):
+        Usage = collections.namedtuple("Usage", "total used free")
+        with mock.patch.object(agent.shutil, "disk_usage", lambda path: Usage(10 * 1024 ** 3, 9 * 1024 ** 3 + 512 * 1024 ** 2, 512 * 1024 ** 2)):
+            out = self.say("/disk")
+        self.assertIn("nearly full", out)
+        self.assertIn("512.0 MB free of 10.0 GB", out)
+
+
 class FacebookUploadTests(unittest.TestCase):
     def test_chunked_upload_sends_every_byte_and_schedules(self):
         data = os.urandom(100)
@@ -628,7 +728,7 @@ class ProjectFileTests(unittest.TestCase):
         for flag in ("--auth", "--check", "--chatid", "--cover", "--version"):
             self.assertIn(f'"{flag}"', self.read("agent.py"))
             self.assertIn(flag, readme, f"README does not mention {flag}")
-        for command in ("/status", "/jobs", "/cancel", "/restart", "/stop", "/help"):
+        for command in ("/status", "/jobs", "/cancel", "/disk", "/clean", "/restart", "/stop", "/help"):
             self.assertIn(command, readme)
         for name in ("agent.py", "captions.py", "meta_setup.py", "run_agent.bat", "deploy_to_server.bat",
                      "settings.example.json", ".env.example", "server/setup_server.sh", "server/sync_inbox.sh"):
