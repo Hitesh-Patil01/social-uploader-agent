@@ -1,0 +1,30 @@
+# ---- Secrets: never commit these ----
+.env
+token.json
+client_secret.json
+rclone.conf
+*.key
+*.pem
+
+# ---- Your own settings (handles, ids, hashtags). Commit settings.example.json instead. ----
+settings.json
+
+# ---- Files the agent creates while running ----
+schedule.json
+agent.log
+sync.log
+.public_tmp/
+inbox/
+scheduled/
+done/
+skipped/
+to_server/
+*.mp4
+*.mov
+*.m4v
+*.cover.jpg
+
+# ---- Python ----
+venv/
+__pycache__/
+*.pyc
