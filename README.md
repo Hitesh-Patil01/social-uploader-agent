@@ -10,6 +10,10 @@ passwords, and it runs entirely on free tiers.
 Different videos can go to different places: one video to only Instagram @account_one, the next to YouTube and Facebook, and so on.
 Nothing is posted anywhere you did not choose.
 
+> **Disclaimer.** This is a personal project, shared as it is under the MIT License (see the `LICENSE` file). It comes with no warranty and no support. Use it at your own risk and only with accounts you own.
+> It is not affiliated with or endorsed by Google, YouTube, Meta, Facebook, Instagram, Telegram, Oracle or Cloudflare. Their rules and APIs change, and they can limit or close an account, so read their terms before you use it.
+> You must create your own Telegram bot, Google project, Meta app and server. Nothing here gives you access to anyone else's accounts.
+
 You can run it in either of two ways:
 
 | | **Track A: Windows PC** | **Track B: free Oracle Cloud server** |
@@ -244,6 +248,11 @@ Then `python agent.py --check` must show the YouTube login as OK.
 
 **C. Stop the login from expiring.** In **Google Auth Platform → Audience**, if the status is **Testing**, click **Publish app**. In Testing
 mode the login stops working after 7 days. After publishing, delete `token.json` and run `python agent.py --auth` once more.
+
+**Google needs two web pages before you can publish the app.** The Branding page asks for a home page and a privacy policy link on a domain you own. A free way is **GitHub Pages**:
+create a **public** repository named `YOUR_GITHUB_USERNAME.github.io`, upload the two templates from `docs/privacy-site-templates/` (replace every `YOUR_...` placeholder with your own details, and do not add a logo),
+then turn on **Settings → Pages → Deploy from a branch → main → / (root)**. On Google's Branding page use `https://YOUR_GITHUB_USERNAME.github.io/` as the home page, the same address with `privacy.html` as the privacy policy,
+and `YOUR_GITHUB_USERNAME.github.io` as the authorized domain. As far as we know, Google's verification process is not needed when you are the only user.
 
 **D. Test** (see [section 10](#10-daily-use) for how to send a video). Send a short vertical video to `yt` only, with the time a day ahead.
 In **studio.youtube.com → Content** check that **Visibility says Scheduled**, the title, description, tags and playlist are right,
@@ -756,6 +765,8 @@ server/setup_server.sh      server: one-command setup
 server/social-uploader.service   server: background service definition
 server/sync_inbox.sh        server: moves videos from Google Drive into the inbox
 tests/test_project.py       offline tests
+docs/privacy-site-templates/  two web page templates for Google's Branding page (section 6)
+LICENSE                     the MIT License
 .gitignore, .gitattributes  keep secrets out of git, keep correct line endings
 ```
 
@@ -774,10 +785,14 @@ git status
 Read the `git status` list **before committing**. It must not contain `.env`, `token.json`, `client_secret.json`, `settings.json`, `schedule.json`, any `.key` file or any video. If one appears,
 stop and fix `.gitignore`. Then:
 ```
-git commit -m "Social uploader 1.0.0"
+git commit -m "First commit"
 ```
-Use a **private** repository. Commit `settings.example.json`, never your own `settings.json`. Anyone who clones the repository repeats Parts 1 to 5 with their own accounts.
-Never reuse someone else's tokens, Telegram bot or Meta app.
+If you keep your own copy in git, use a **private** repository, commit `settings.example.json`, and never commit your own `settings.json`. Anyone who clones this project repeats Parts 1 to 5 with their own accounts.
+Never reuse someone else's tokens, Telegram bot or Meta app, and never publish your own `.env`, `token.json`, `rclone.conf` or screenshots of them.
+GitHub's web upload ignores `.gitignore`, so check the file list before you commit.
+
+**License, support and contributions.** The project is released under the MIT License (see `LICENSE`). It is provided as it is, without warranty or support.
+Improvements are welcome as pull requests: run `python tests/test_project.py` first, and never include secrets or personal data.
 
 ---
 
