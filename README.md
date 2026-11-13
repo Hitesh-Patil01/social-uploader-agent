@@ -191,7 +191,7 @@ Nothing here costs money. The only payment step is the card check when you sign 
 Make a folder, for example `C:\social-uploader`. **Do not** put it inside OneDrive, Google Drive or Dropbox, because it will hold
 secret keys. Copy the project files into it, all in the same folder:
 `agent.py`, `captions.py`, `meta_setup.py`, `requirements.txt`, `settings.example.json`, `.env.example`, `run_agent.bat`,
-`deploy_to_server.bat`, and the `server` folder (with `setup_server.sh`, `social-uploader.service`, `sync_inbox.sh`).
+`deploy_to_server.bat`, `sync_drive_pc.bat` (optional), and the `server` folder (with `setup_server.sh`, `social-uploader.service`, `sync_inbox.sh`).
 
 ### Install the programs (Windows, in cmd)
 ```
@@ -457,6 +457,9 @@ Part 5 is done. Go on to Part 6.
 4. **Videos from your phone (optional).** Install **Google Drive for desktop** (or OneDrive), make a folder in it, and set it in `.env`, for example
    `INBOX_DIR=C:\Users\YourName\Google Drive\social-inbox`. Use **Mirror files** (Drive) or **Always keep on this device** (OneDrive). Otherwise
    just copy videos into the `inbox` folder.
+   **Or, without installing Google Drive for desktop:** use rclone, which the server also uses. Create the `gdrive` login on your PC with section 9.8, items 1 to 4,
+   and check that `rclone lsd gdrive:` lists `social-inbox`. Then double-click **`sync_drive_pc.bat`** and keep its window open next to the agent. Once a minute it moves new videos
+   from the Drive folder into the `inbox` folder. Close it before you start Stage 2, so that only one program takes videos out of Drive. Keep your own copy of each video: it leaves the Drive folder (Google keeps it in the Drive trash for 30 days).
 
 The PC must be on and awake at every Instagram post time. YouTube and Facebook schedule themselves, but the upload happens when you answer `ok`.
 
@@ -474,6 +477,9 @@ The PC must be on and awake at every Instagram post time. YouTube and Facebook s
 ## 9. Stage 2 (optional): Run it on a free Oracle Cloud server
 
 > **Stage 2 starts here.** Typical time: 2 to 3 hours the first time, plus waiting for the Oracle account to be approved.
+
+**Menu names change.** Oracle renames console menus often. If a name in this section does not match what you see, click the **search box** at the top of the console and type the name (for example `Instances`, `Budgets` or `Tenancy details`).
+**Last checked: November 2026.** The VCN wizard, Create instance, the shape list, Tenancy details and Boot volumes were checked against real console screens. **Budgets, Monitoring, Tenancy Explorer and reserved IP addresses were not**, so their menu names may differ.
 
 **Do you need Stage 2?** Only if you want posts to go out while your PC is off or asleep. YouTube and Facebook schedule themselves, but Instagram has no scheduler for programs, so the agent must be running at every Instagram post time. A free server keeps it running all day. If your PC is on at your post times, Stage 1 is enough and you can skip this whole section.
 
@@ -950,10 +956,10 @@ Several videos in the inbox are handled one at a time.
 
 ## 15. Honest status and limits
 
-**Tested live by the author (up to version 1.1.0):** Telegram control; YouTube upload, schedule, tags, description, playlist; Facebook chunked upload, schedule, text and cover;
-Instagram linking, token setup and the helper; **publishing real Instagram posts at their set time on both Instagram accounts, run from the server with the PC off**; `/cancel all` removing queued Instagram posts; the Oracle server setup;
+**Tested live by the author (up to version 1.2.0):** Telegram control; YouTube upload, schedule, tags, description, playlist; Facebook chunked upload, schedule, text and cover;
+Instagram linking, token setup and the helper; **publishing real Instagram posts at their set time on both Instagram accounts, run from the server with the PC off**; `/cancel all` removing queued Instagram posts; `/disk`, `/clean`, and `/clean done` with its confirmation, on the server; the Oracle server setup;
 Google Drive sync; the choose-where-to-post flow; time commands; heading removal.
-The automated tests (section 16) cover all of this offline. Version 1.2.0 adds `/disk` and `/clean`. They are covered by the offline tests, but have not yet been run on a real server. Your results may differ: platform rules, app review states and account types change, so run the tests in section 7.4 on your own accounts before you rely on it.
+The automated tests (section 16) cover all of this offline. Version 1.2.0 adds `/disk` and `/clean`; `/clean all` uses the same code as the two `/clean` forms that were tested live, and is covered by the offline tests only. Your results may differ: platform rules, app review states and account types change, so run the tests in section 7.4 on your own accounts before you rely on it.
 
 **Limits**
 - YouTube's free quota allows roughly 6 uploads a day. Projects Google has not audited may keep uploads private.
@@ -978,6 +984,7 @@ settings.example.json       copy to settings.json and fill in
 .env.example                copy to .env and fill in
 run_agent.bat               Windows: start the agent and restart it if it stops
 deploy_to_server.bat        Windows: send updated files to your server
+sync_drive_pc.bat           Windows, optional: copy videos from a Google Drive folder into the inbox (needs rclone)
 server/setup_server.sh      server: one-command setup
 server/social-uploader.service   server: background service definition
 server/sync_inbox.sh        server: moves videos from Google Drive into the inbox
@@ -1019,6 +1026,7 @@ Improvements are welcome as pull requests: run `python tests/test_project.py` fi
 |---|---|
 | `python agent.py` | Runs the agent |
 | `run_agent.bat` | Runs the agent and restarts it if it stops (Windows) |
+| `sync_drive_pc.bat` | Optional: moves videos from your Google Drive folder into the inbox once a minute (needs rclone, Windows) |
 | `python agent.py --check` | Shows what is still missing |
 | `python agent.py --version` | Prints the version |
 | `python agent.py --chatid` | Finds your Telegram chat id |
