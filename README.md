@@ -974,10 +974,10 @@ Several videos in the inbox are handled one at a time.
 
 ## 15. Honest status and limits
 
-**Tested live by the author (up to version 1.2.0):** Telegram control; YouTube upload, schedule, tags, description, playlist; Facebook chunked upload, schedule, text and cover;
-Instagram linking, token setup and the helper; **publishing real Instagram posts at their set time on both Instagram accounts, run from the server with the PC off**; `/cancel all` removing queued Instagram posts; `/disk`, `/clean`, and `/clean done` with its confirmation, on the server; the Oracle server setup;
+**Tested live by the author (up to version 1.2.1):** Telegram control; YouTube upload, schedule, tags, description, playlist; Facebook chunked upload, schedule, text and cover;
+Instagram linking, token setup and the helper; **publishing real Instagram posts at their set time on both Instagram accounts, run from the server with the PC off**; `/cancel all` removing queued Instagram posts; `/disk`, `/clean`, `/clean done` with its confirmation, and `/clean system` (the preview and then `yes`, which freed about 250 MB), on the server; the Oracle server setup;
 Google Drive sync; the choose-where-to-post flow; time commands; heading removal.
-The automated tests (section 16) cover all of this offline. Version 1.2.0 adds `/disk` and `/clean`; `/clean all` uses the same code as the two `/clean` forms that were tested live, and is covered by the offline tests only. Version 1.2.1 adds `/clean system` and `/clean everything`; they are covered by the offline tests only and have not yet been run on a real server. Your results may differ: platform rules, app review states and account types change, so run the tests in section 7.4 on your own accounts before you rely on it.
+The automated tests (section 16) cover all of this offline. Version 1.2.0 adds `/disk` and `/clean`; `/clean all` uses the same code as the two `/clean` forms that were tested live, and is covered by the offline tests only. Version 1.2.1 adds `/clean system` and `/clean everything`; `/clean everything` uses the same code as the forms that were tested live, and is covered by the offline tests only. Your results may differ: platform rules, app review states and account types change, so run the tests in section 7.4 on your own accounts before you rely on it.
 
 **Limits**
 - YouTube's free quota allows roughly 6 uploads a day. Projects Google has not audited may keep uploads private.
