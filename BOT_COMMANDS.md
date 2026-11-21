@@ -1,4 +1,4 @@
-# Social Uploader: Telegram bot commands (version 1.2.0)
+# Social Uploader: Telegram bot commands (version 1.2.1)
 
 Send these to your bot in Telegram. There are two kinds:
 - **Commands that start with `/`** work at any time.
@@ -20,6 +20,8 @@ Send these to your bot in Telegram. There are two kinds:
 | `/clean` | Deletes the **cancelled** videos (the `skipped` folder) and says how much space it freed. Never touches the inbox or the Instagram posts that are still waiting |
 | `/clean done` | Also deletes **posted** videos. It first asks you to confirm: send `/clean done yes`. The small results records are kept |
 | `/clean all` | Cancelled and posted videos together. Confirm with `/clean all yes` |
+| `/clean system` | Needs `ALLOW_SYSTEM_CLEAN=1` in the server's `.env`. Shows what it will clean and its sizes, then waits. Send `/clean system yes` to run it: clears apt's download cache, unused packages and old kernels, the system journal (cut to 100 MB), old rotated logs, pip's cache, and trims `agent.log` and `sync.log`. No video is touched |
+| `/clean everything` | Cancelled videos, posted videos and the system cleanup together. Confirm with `/clean everything yes` |
 | `/restart` | Restarts the agent. It is back in about 15 seconds. Use it after updating files. A video you were answering about is asked about again, and waiting Instagram posts are kept |
 | `/stop` | Stops the agent for good. Waiting Instagram posts do **not** go out until it runs again. To start it again: `sudo systemctl start social-uploader` on the server, or `run_agent.bat` on the PC |
 
@@ -83,7 +85,7 @@ YouTube and Facebook need a time at least 15 minutes ahead.
 ## 4. Messages the bot sends by itself
 | Message | Meaning |
 |---|---|
-| "Agent 1.2.0 is running…" | The agent has just started |
+| "Agent 1.2.1 is running…" | The agent has just started |
 | "New video: name.mp4" and the places menu | A video arrived in the inbox |
 | "PLEASE CHECK" and the preview | Check the text, date and times, then reply `ok` |
 | "Working on it: …" | Uploading |
