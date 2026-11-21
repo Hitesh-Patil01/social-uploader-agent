@@ -536,7 +536,7 @@ class StorageCommandTests(AgentCase):
 
     def test_unknown_words_do_nothing(self):
         keep = self.put(agent.SKIPPED, "s.mp4")
-        for text in ("/clean everything", "/clean skipped done", "/clean yes yes foo"):
+        for text in ("/clean videos", "/clean skipped done", "/clean yes yes foo"):
             with self.subTest(text=text):
                 self.assertIn("Use /clean", self.say(text))
         self.assertTrue(keep.exists())
@@ -557,6 +557,133 @@ class StorageCommandTests(AgentCase):
             out = self.say("/disk")
         self.assertIn("nearly full", out)
         self.assertIn("512.0 MB free of 10.0 GB", out)
+
+
+class SystemCleanTests(AgentCase):
+    """/clean system and /clean everything: opt-in, a fixed list of safe commands, never built from chat text."""
+
+    def setUp(self):
+        super().setUp()
+        self.ran, self.fail = [], {}
+
+        def fake_run(cmd, **kw):
+            i = len(self.ran)
+            self.ran.append((list(cmd), kw))
+            rc, err = self.fail.get(i, (0, ""))
+            return subprocess.CompletedProcess(cmd, rc, stdout="", stderr=err)
+
+        self.home = TMP / "fake_home"
+        shutil.rmtree(self.home, ignore_errors=True)
+        for p in (mock.patch.object(agent.subprocess, "run", fake_run),
+                  mock.patch.object(Path, "home", return_value=self.home),
+                  mock.patch.dict(os.environ, {"ALLOW_SYSTEM_CLEAN": "1"})):
+            p.start()
+            self.addCleanup(p.stop)
+
+    def put(self, folder, name, size=10):
+        folder = Path(folder)
+        folder.mkdir(parents=True, exist_ok=True)
+        f = folder / name
+        f.write_bytes(b"x" * size)
+        return f
+
+    def with_sudo(self, value=True):
+        p = mock.patch.object(agent, "can_use_sudo", lambda: value)
+        p.start()
+        self.addCleanup(p.stop)
+
+    def test_it_is_switched_off_unless_you_allow_it(self):
+        self.with_sudo()
+        video = self.put(agent.SKIPPED, "s.mp4")
+        with mock.patch.dict(os.environ):
+            os.environ.pop("ALLOW_SYSTEM_CLEAN", None)
+            for text in ("/clean system", "/clean system yes", "/clean everything yes"):
+                with self.subTest(text=text):
+                    self.assertIn("switched off", self.say(text))
+        self.assertEqual(self.ran, [])
+        self.assertTrue(video.exists())
+
+    def test_the_preview_runs_nothing(self):
+        self.with_sudo()
+        out = self.say("/clean system")
+        self.assertIn("/clean system yes", out)
+        self.assertIn("Ubuntu security updates stay installed", out)
+        self.assertEqual(self.ran, [])
+
+    def test_it_runs_exactly_the_fixed_commands(self):
+        self.with_sudo()
+        out = self.say("/clean system yes")
+        self.assertEqual([c for c, _ in self.ran], [list(cmd) for _, cmd in agent.SYSTEM_STEPS])
+        for cmd, kw in self.ran:
+            self.assertEqual(cmd[:2], ["sudo", "-n"])
+            self.assertFalse(kw.get("shell"), "no shell may be used")
+        self.assertIn(["sudo", "-n", "apt-get", "clean"], [c for c, _ in self.ran])
+        self.assertIn("System cleanup finished", out)
+
+    def test_chat_text_never_reaches_a_command(self):
+        self.with_sudo()
+        for text in ("/clean system; rm -rf / yes", "/clean system yes extra", "/clean system && reboot"):
+            with self.subTest(text=text):
+                self.assertIn("Use /clean", self.say(text))
+        self.assertEqual(self.ran, [])
+
+    def test_a_failed_step_does_not_stop_the_others(self):
+        self.with_sudo()
+        self.fail[1] = (100, "E: Could not get lock /var/lib/dpkg/lock-frontend")
+        out = self.say("/clean system yes")
+        self.assertEqual(len(self.ran), len(agent.SYSTEM_STEPS))
+        self.assertIn("⚠️", out)
+        self.assertIn("Could not get lock", out)
+
+    def test_without_passwordless_sudo_only_user_level_steps_run(self):
+        self.with_sudo(False)
+        pip_file = self.put(self.home / ".cache" / "pip", "wheel.whl", 100)
+        out = self.say("/clean system yes")
+        self.assertEqual(self.ran, [])
+        self.assertIn("Skipped the apt and /var/log steps", out)
+        self.assertFalse(pip_file.exists())
+
+    def test_big_agent_logs_are_trimmed_and_small_ones_left(self):
+        self.with_sudo(False)
+        big, small = agent.BASE / "agent.log", agent.BASE / "sync.log"
+        big.write_text("".join(f"line {i} " + "x" * 990 + "\n" for i in range(5000)), encoding="utf-8")
+        small.write_text("one\ntwo\n", encoding="utf-8")
+        self.say("/clean system yes")
+        text = big.read_text(encoding="utf-8")
+        self.assertLess(big.stat().st_size, agent.LOG_TRIM_ABOVE)
+        self.assertIn("line 4999 ", text)
+        self.assertNotIn("line 0 ", text)
+        self.assertEqual(small.read_text(encoding="utf-8"), "one\ntwo\n")
+
+    def test_everything_needs_yes_and_never_touches_waiting_posts(self):
+        self.with_sudo()
+        waiting = self.put(agent.SCHEDULED, "w.mp4")
+        inbox = self.put(agent.INBOX, "i.mp4")
+        cancelled = self.put(agent.SKIPPED, "s.mp4")
+        posted = self.put(agent.DONE, "d.mp4")
+        out = self.say("/clean everything")
+        self.assertIn("/clean everything yes", out)
+        self.assertTrue(cancelled.exists() and posted.exists())
+        self.assertEqual(self.ran, [])
+        self.say("/clean everything yes")
+        self.assertFalse(cancelled.exists() or posted.exists())
+        self.assertTrue(waiting.exists() and inbox.exists())
+        self.assertEqual(len(self.ran), len(agent.SYSTEM_STEPS))
+
+    def test_sudo_check_looks_at_the_platform_and_the_password(self):
+        with mock.patch.object(agent.sys, "platform", "win32"):
+            self.assertFalse(agent.can_use_sudo())
+        self.assertEqual(self.ran, [])
+        with mock.patch.object(agent.sys, "platform", "linux"), mock.patch.object(agent.shutil, "which", lambda name: "/usr/bin/sudo"):
+            self.assertTrue(agent.can_use_sudo())
+            self.assertEqual(self.ran[-1][0], ["sudo", "-n", "true"])
+            self.fail[len(self.ran)] = (1, "sudo: a password is required")
+            self.assertFalse(agent.can_use_sudo())
+
+    def test_a_small_log_is_not_touched(self):
+        f = self.put(agent.BASE, "small_test.log", 500)
+        self.assertEqual(agent.trim_log(f), 0)
+        self.assertEqual(f.stat().st_size, 500)
 
 
 class FacebookUploadTests(unittest.TestCase):
