@@ -13,7 +13,7 @@ How a post happens:
                Facebook (native schedule) are uploaded right away, if chosen.  Instagram posts are published by
                this agent at the set times, so the agent must be running then (on a server it always is).
 
-Telegram commands (when the agent is running):  /help   /status   /jobs   /cancel   /disk   /clean   /restart   /stop
+Telegram commands (when the agent is running):  /help   /status   /jobs   /cancel   /disk   /clean   /restart   /stop   (/clean system and /clean everything also clear old logs and update downloads)
 
 Commands:
   python agent.py --auth    one-time YouTube login (opens a browser)
@@ -37,6 +37,7 @@ import sys
 import threading
 import time
 from contextlib import contextmanager
+from collections import deque
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -46,7 +47,7 @@ from dotenv import load_dotenv
 
 import captions
 
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 
 for _s in (sys.stdout, sys.stderr):  # Marathi/emoji safe on Windows consoles
     try:
@@ -862,7 +863,7 @@ def storage_text(compact: bool = False) -> str:
     lines.append(disk)
     if low:
         lines.append("⚠️ The disk is nearly full. Send /clean to delete cancelled videos.")
-    lines.append("Free up space: /clean (cancelled videos), /clean done (posted videos), /clean all (both). "
+    lines.append("Free up space: /clean (cancelled videos), /clean done (posted videos), /clean all (both), /clean system (old logs and update downloads). "
                  "The inbox and waiting Instagram posts are never touched.")
     return "\n".join(lines)
 
@@ -881,38 +882,154 @@ def files_to_clean(folder: Path, only_videos: bool) -> list:
     return found
 
 
+LOG_KEEP_LINES = 1000            # /clean system keeps this many last lines of a big log file
+LOG_TRIM_ABOVE = 2 * 1024 * 1024  # and only touches a log that is bigger than this
+# The system steps are a FIXED list. Nothing from a chat message is ever put into a command, and no shell is used.
+SYSTEM_STEPS = (
+    ("update packages downloaded by apt", ["sudo", "-n", "apt-get", "clean"]),
+    ("unused packages and old kernels", ["sudo", "-n", "env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "autoremove", "-y"]),
+    ("system journal (cut to 100 MB)", ["sudo", "-n", "journalctl", "--vacuum-size=100M"]),
+    ("old rotated logs in /var/log", ["sudo", "-n", "find", "/var/log", "-type", "f", "(", "-name", "*.gz", "-o", "-name", "*.[0-9]", ")", "-delete"]),
+)
+CLEAN_USAGE = ("Use /clean (cancelled videos), /clean done (posted videos), /clean all (both), "
+               "/clean system (old logs and update downloads) or /clean everything (all of these).\n"
+               "Everything except plain /clean asks you to confirm first, for example: /clean done yes")
+
+
+def allow_system_clean() -> bool:
+    return os.getenv("ALLOW_SYSTEM_CLEAN", "0").strip() == "1"
+
+
+def dir_size(path: Path) -> int:
+    """Total bytes of the files under a folder. Folders that cannot be read count as empty."""
+    total = 0
+    for root, _dirs, files in os.walk(path):
+        for name in files:
+            try:
+                total += os.lstat(os.path.join(root, name)).st_size
+            except OSError:
+                pass
+    return total
+
+
+def trim_log(path: Path) -> int:
+    """Keep only the last LOG_KEEP_LINES lines of a big log file. Returns the bytes freed."""
+    try:
+        size = path.stat().st_size
+        if size <= LOG_TRIM_ABOVE:
+            return 0
+        with open(path, "rb") as f:
+            tail = deque(f, maxlen=LOG_KEEP_LINES)
+        with open(path, "r+b") as f:
+            f.seek(0)
+            f.writelines(tail)
+            f.truncate()
+        return max(0, size - path.stat().st_size)
+    except OSError as e:
+        log.warning("Could not trim %s: %s", path.name, e)
+        return 0
+
+
+def can_use_sudo() -> bool:
+    """True on Linux when sudo works without asking for a password (the default on the Oracle Ubuntu image)."""
+    if not sys.platform.startswith("linux") or not shutil.which("sudo"):
+        return False
+    try:
+        return subprocess.run(["sudo", "-n", "true"], capture_output=True, timeout=15).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def system_preview() -> str:
+    pip_cache = Path.home() / ".cache" / "pip"
+    own_logs = sum(f.stat().st_size for f in (BASE / "agent.log", BASE / "sync.log") if f.exists())
+    lines = ["This will also clean the system (no video is touched):",
+             f"  update packages downloaded by apt: {human_size(dir_size(Path('/var/cache/apt/archives')))}",
+             f"  system logs in /var/log: {human_size(dir_size(Path('/var/log')))} (the journal is cut to 100 MB and old rotated logs are deleted)",
+             "  unused packages and old kernels (apt autoremove)",
+             f"  the agent's own logs: {human_size(own_logs)} (only the last {LOG_KEEP_LINES} lines of a big log are kept)",
+             f"  pip download cache: {human_size(dir_size(pip_cache))}",
+             "Ubuntu security updates stay installed and keep working."]
+    if not can_use_sudo():
+        lines.append("Note: the apt and log steps will be skipped here (this is not Linux, or sudo asks for a password).")
+    return "\n".join(lines)
+
+
+def run_system_cleanup() -> str:
+    free_before = shutil.disk_usage(BASE).free
+    lines = []
+    if can_use_sudo():
+        for label, cmd in SYSTEM_STEPS:
+            try:
+                r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+                if r.returncode == 0:
+                    lines.append(f"✅ {label}")
+                else:
+                    reason = (r.stderr or r.stdout or "").strip().splitlines()
+                    lines.append(f"⚠️ {label} (failed: {reason[-1][:120] if reason else 'code ' + str(r.returncode)})")
+            except (OSError, subprocess.SubprocessError) as e:
+                lines.append(f"⚠️ {label} (could not run: {e})")
+    else:
+        lines.append("ℹ️ Skipped the apt and /var/log steps: this is not Linux, or sudo asks for a password.")
+    pip_cache = Path.home() / ".cache" / "pip"
+    if pip_cache.exists():
+        shutil.rmtree(pip_cache, ignore_errors=True)
+        lines.append("✅ pip download cache")
+    trimmed = trim_log(BASE / "agent.log") + trim_log(BASE / "sync.log")
+    if trimmed:
+        lines.append(f"✅ agent logs trimmed, {human_size(trimmed)} freed")
+    freed = max(0, shutil.disk_usage(BASE).free - free_before)
+    return f"🧹 System cleanup finished, about {human_size(freed)} freed.\n" + "\n".join(lines)
+
+
 def clean_command(args: list) -> str:
     words = [a.lower() for a in args]
     confirmed = "yes" in words
     words = [w for w in words if w != "yes"]
     what = words[0] if words else "skipped"
-    if len(words) > 1 or what not in ("skipped", "done", "all"):
-        return ("Use /clean (cancelled videos), /clean done (posted videos) or /clean all (both).\n"
-                "Posted videos need a confirmation: /clean done yes")
+    if len(words) > 1 or what not in ("skipped", "done", "all", "system", "everything"):
+        return CLEAN_USAGE
+    do_system = what in ("system", "everything")
+    if do_system and not allow_system_clean():
+        return ("System cleanup is switched off. It runs a short, fixed list of safe commands with sudo and never uses "
+                "anything from chat text. To allow it, add ALLOW_SYSTEM_CLEAN=1 to the .env file and restart the agent.")
     targets = []
-    if what in ("skipped", "all"):
+    if what in ("skipped", "all", "everything"):
         targets.append(("cancelled", SKIPPED, False))
-    if what in ("done", "all"):
+    if what in ("done", "all", "everything"):
         targets.append(("posted", DONE, True))
     plan = [(label, f) for label, folder, only_videos in targets for f in files_to_clean(folder, only_videos)]
-    if not plan:
+    if not plan and not do_system:
         return "Nothing to delete.\n" + storage_text(compact=True)
     videos = sum(1 for _, f in plan if f.suffix.lower() in VIDEO_EXT)
     size = sum(f.stat().st_size for _, f in plan)
-    if what in ("done", "all") and not confirmed:
-        return (f"This will delete {videos} video(s), {human_size(size)} in total, including posted videos. They are already "
-                f"posted, but the agent keeps no other copy.\nSend /clean {what} yes to confirm.")
-    freed = removed = 0
-    for _, f in plan:
-        try:
-            n = f.stat().st_size
-            f.unlink()
-            removed += 1
-            freed += n
-        except OSError as e:
-            log.warning("Could not delete %s: %s", f.name, e)
-    return (f"🧹 Deleted {videos} video(s) and {removed - videos} other file(s), freed {human_size(freed)}. "
-            "The inbox and waiting Instagram posts were not touched.\n" + storage_text(compact=True))
+    if what != "skipped" and not confirmed:
+        lines = []
+        if plan:
+            posted = any(label == "posted" for label, _ in plan)
+            lines.append(f"This will delete {videos} video(s), {human_size(size)} in total"
+                         + (", including posted videos. They are already posted, but the agent keeps no other copy." if posted else "."))
+        if do_system:
+            lines.append(system_preview())
+        lines.append(f"Send /clean {what} yes to confirm.")
+        return "\n".join(lines)
+    out = []
+    if plan:
+        freed = removed = 0
+        for _, f in plan:
+            try:
+                n = f.stat().st_size
+                f.unlink()
+                removed += 1
+                freed += n
+            except OSError as e:
+                log.warning("Could not delete %s: %s", f.name, e)
+        out.append(f"🧹 Deleted {videos} video(s) and {removed - videos} other file(s), freed {human_size(freed)}. "
+                   "The inbox and waiting Instagram posts were not touched.")
+    if do_system:
+        tg_send("Cleaning the system. This can take a few minutes, and I will not answer until it is done.")
+        out.append(run_system_cleanup())
+    return "\n".join(out) + "\n" + storage_text(compact=True)
 
 
 def remote_command(text: str) -> bool:
@@ -927,7 +1044,7 @@ def remote_command(text: str) -> bool:
                 "  /jobs     list the Instagram posts that are waiting\n"
                 "  /cancel   remove waiting Instagram posts (/cancel 1 or /cancel all)\n"
                 "  /disk     how many videos are kept here, and the free disk space\n"
-                "  /clean    delete cancelled videos (/clean done or /clean all also delete posted ones)\n"
+                "  /clean    delete cancelled videos (/clean done or /clean all also delete posted ones; /clean system clears old logs and update downloads; /clean everything does all of it)\n"
                 "  /restart  restart the agent (when started with run_agent.bat or the server service)\n"
                 "  /stop     stop the agent")
     elif cmd == "/status":

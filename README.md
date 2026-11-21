@@ -1,6 +1,6 @@
 # Social Uploader Agent
 
-**Version 1.2.0**
+**Version 1.2.1**
 
 Post one video to **YouTube, Facebook and Instagram** from your phone. You send the video, and the agent asks you
 (on Telegram) where it should go, takes your title and caption, adds your fixed mention, hashtags and tags, then uploads and
@@ -234,7 +234,7 @@ At this stage, `--check` lists MISSING for several things. That is your to-do li
 **Checkpoint: Part 1 is done when**
 - [ ] `python --version`, `ffmpeg -version` and `cloudflared --version` each print a version.
 - [ ] After `venv\Scripts\activate`, the prompt starts with `(venv)`.
-- [ ] `python agent.py --version` prints `Social uploader agent 1.2.0`.
+- [ ] `python agent.py --version` prints `Social uploader agent 1.2.1`.
 - [ ] `python agent.py --check` runs. It lists MISSING items at this stage, and that is normal.
 
 ---
@@ -690,7 +690,7 @@ The server checks a Drive folder every minute and moves new videos into the agen
 
 **Checkpoint: Stage 2 is complete when**
 - [ ] The PC agent (and any Drive copy script on the PC) is stopped, so only one agent reads the bot.
-- [ ] `/status` answers from the server and shows version 1.2.0.
+- [ ] `/status` answers from the server and shows version 1.2.1.
 - [ ] `rclone lsd gdrive:` lists `social-inbox` on the server (if you use Google Drive).
 - [ ] A video uploaded to the Drive folder made the bot ask where to post it.
 - [ ] With your PC **off**, a real Instagram post went out at its time.
@@ -738,6 +738,21 @@ crontab /tmp/cron.txt
 crontab -l
 ```
 Videos that came from Google Drive are moved out of the Drive folder, and Google keeps them in the Drive trash for 30 days. Keep your own copy of anything you care about.
+
+**Clear old logs and update downloads (optional).** Over time the system keeps files you do not need: packages that Ubuntu downloaded for updates, old kernels, and old log files. Ubuntu's **security updates themselves stay installed and keep working**. Only the leftovers are removed, and they are not needed. Do not switch automatic security updates off: the server is on the internet. To allow cleaning from Telegram, add `ALLOW_SYSTEM_CLEAN=1` to the server's `.env` (`nano ~/social-uploader/.env`) and run `sudo systemctl restart social-uploader`. Then:
+
+| Send | What it does |
+|---|---|
+| `/clean system` | Shows what it will do and how big each part is, then waits. Nothing is changed |
+| `/clean system yes` | Empties apt's download cache, removes unused packages and old kernels (`apt-get autoremove`), cuts the system journal to 100 MB, deletes old rotated logs in `/var/log`, clears pip's cache, and keeps only the last 1000 lines of a big `agent.log` or `sync.log` |
+| `/clean everything yes` | The same, and it also deletes the cancelled and posted videos |
+
+It runs a **fixed list** of commands with `sudo` (Ubuntu's default user can use `sudo` without a password) and never puts text from a chat message into a command. It does not touch videos in the inbox, Instagram posts that are waiting, your settings, your keys or the Python environment. While it runs, the bot does not answer, which can take a few minutes. If a step fails (for example because Ubuntu is installing an update at that moment), the others still run, and you can send the command again later.
+To stop the system journal from growing at all, set a permanent limit once, on the server:
+```
+sudo sed -i 's/^#\?SystemMaxUse=.*/SystemMaxUse=100M/' /etc/systemd/journald.conf
+sudo systemctl restart systemd-journald
+```
 
 ### 9.10 Update the agent later
 Edit the two lines at the top of `deploy_to_server.bat` (your key path and `ubuntu@YOUR_SERVER_IP`), double-click it, then send `/restart` to your bot.
@@ -829,6 +844,8 @@ Several videos in the inbox are handled one at a time.
 | `/disk` | Shows how many videos are kept in each folder (inbox, scheduled, skipped, done), how big they are, and the free disk space |
 | `/clean` | Deletes the **cancelled** videos (the `skipped` folder) and says how much space it freed. It never touches the inbox or Instagram posts that are still waiting |
 | `/clean done` or `/clean all` | Also deletes **posted** videos (the `done` folder). It first asks you to confirm with `/clean done yes` or `/clean all yes`. The small `.results.json` records are kept |
+| `/clean system` | Needs `ALLOW_SYSTEM_CLEAN=1` in `.env` (Linux, section 9.9). Shows what it will clean and asks you to confirm with `/clean system yes`. It then clears apt's download cache, unused packages and old kernels, the system journal and old rotated logs, pip's cache, and trims `agent.log` and `sync.log`. No video is touched |
+| `/clean everything` | Cancelled videos, posted videos and the system cleanup together. Confirm with `/clean everything yes` |
 | `/restart` | Restarts the agent (works when started with `run_agent.bat` or the server service) |
 | `/stop` | Stops the agent for good. Waiting Instagram posts do not go out until it runs again |
 
@@ -869,6 +886,7 @@ Several videos in the inbox are handled one at a time.
 | `GRAPH_VERSION` | Meta API version (default `v23.0`) |
 | `INBOX_DIR` | Optional folder to watch. Default: the `inbox` folder next to `agent.py`. Empty on a server |
 | `KEEP_VIDEOS` | `1` keeps posted videos in `done`, `0` deletes them |
+| `ALLOW_SYSTEM_CLEAN` | `1` lets `/clean system` and `/clean everything` run a fixed list of `sudo` commands that clear old logs and update downloads (Linux only). Default `0`: off |
 | `TUNNEL_PORT` | Local port for the temporary Instagram video link (default 8765) |
 | `YT_CATEGORY_ID` | YouTube category number (default 22) |
 
@@ -888,7 +906,7 @@ Several videos in the inbox are handled one at a time.
     For YouTube, remove the app under your Google account's third-party access and run `python agent.py --auth`.
   - Meta: generate a new token and run `python meta_setup.py` again.
   - SSH key: make a new key pair and replace the public key on the server.
-- The agent obeys only your own Telegram chat id. The server needs no open ports except SSH.
+- The agent obeys only your own Telegram chat id. The server needs no open ports except SSH. `/clean system` is the only part that uses `sudo`: it runs a fixed list of commands, and only if you set `ALLOW_SYSTEM_CLEAN=1` in `.env`.
 - Two-factor authentication on Google, Facebook, Instagram and Oracle. Backup admins on each Facebook Page.
 - Do not commit anything listed in `.gitignore`.
 
@@ -903,7 +921,7 @@ Several videos in the inbox are handled one at a time.
 | Google Drive login (server) | Same | `rclone config reconnect gdrive:` on the PC, copy `rclone.conf` |
 | Facebook and Instagram tokens | Long-lived. They stop if you change your password or remove the app | Make a new token and run `python meta_setup.py` |
 | Server updates | Monthly | `sudo apt-get update && sudo apt-get upgrade -y`, then `sudo reboot` |
-| Disk space | Monthly | `df -h /`, delete old videos: `rm ~/social-uploader/done/*.mp4` (or `KEEP_VIDEOS=0`) |
+| Disk space | Monthly | `/disk` in Telegram, then `/clean` (and `/clean system`, section 9.9). By hand: `df -h /`, `rm ~/social-uploader/done/*.mp4` (or `KEEP_VIDEOS=0`) |
 | Backups | After any change | Keep copies of `.env`, `settings.json`, `token.json` (and `rclone.conf`) somewhere private. **Not in git** |
 
 ---
@@ -959,7 +977,7 @@ Several videos in the inbox are handled one at a time.
 **Tested live by the author (up to version 1.2.0):** Telegram control; YouTube upload, schedule, tags, description, playlist; Facebook chunked upload, schedule, text and cover;
 Instagram linking, token setup and the helper; **publishing real Instagram posts at their set time on both Instagram accounts, run from the server with the PC off**; `/cancel all` removing queued Instagram posts; `/disk`, `/clean`, and `/clean done` with its confirmation, on the server; the Oracle server setup;
 Google Drive sync; the choose-where-to-post flow; time commands; heading removal.
-The automated tests (section 16) cover all of this offline. Version 1.2.0 adds `/disk` and `/clean`; `/clean all` uses the same code as the two `/clean` forms that were tested live, and is covered by the offline tests only. Your results may differ: platform rules, app review states and account types change, so run the tests in section 7.4 on your own accounts before you rely on it.
+The automated tests (section 16) cover all of this offline. Version 1.2.0 adds `/disk` and `/clean`; `/clean all` uses the same code as the two `/clean` forms that were tested live, and is covered by the offline tests only. Version 1.2.1 adds `/clean system` and `/clean everything`; they are covered by the offline tests only and have not yet been run on a real server. Your results may differ: platform rules, app review states and account types change, so run the tests in section 7.4 on your own accounts before you rely on it.
 
 **Limits**
 - YouTube's free quota allows roughly 6 uploads a day. Projects Google has not audited may keep uploads private.
@@ -1037,4 +1055,4 @@ Improvements are welcome as pull requests: run `python tests/test_project.py` fi
 | `python tests/test_project.py -v` | Runs the offline tests |
 | `bash ~/social-uploader/server/setup_server.sh` | One-time server setup (run on the server) |
 | `sudo systemctl status/start/stop/restart social-uploader` | Controls the agent on the server |
-| `/help`, `/status`, `/jobs`, `/cancel`, `/disk`, `/clean`, `/restart`, `/stop` | Bot commands in Telegram |
+| `/help`, `/status`, `/jobs`, `/cancel`, `/disk`, `/clean`, `/clean system`, `/restart`, `/stop` | Bot commands in Telegram |
